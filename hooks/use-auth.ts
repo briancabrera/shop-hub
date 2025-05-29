@@ -11,12 +11,28 @@ export function useUser() {
   return useQuery({
     queryKey: ["user"],
     queryFn: async () => {
+      // First check if we have a session
       const {
         data: { session },
+        error: sessionError,
       } = await supabaseClient.auth.getSession()
-      if (!session) return null
 
-      return apiClient.user.getCurrent()
+      if (sessionError) {
+        console.error("Session error:", sessionError)
+        return null
+      }
+
+      if (!session?.user) {
+        return null
+      }
+
+      // If we have a session, get user details
+      try {
+        return await apiClient.user.getCurrent()
+      } catch (error) {
+        console.error("Failed to get user details:", error)
+        return null
+      }
     },
     retry: false,
     staleTime: 10 * 60 * 1000, // 10 minutes

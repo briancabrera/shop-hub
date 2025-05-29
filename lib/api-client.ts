@@ -12,6 +12,7 @@ import type {
   SearchResponse,
 } from "@/types/api"
 import type { Category } from "@/hooks/use-categories"
+import { supabaseClient } from "@/lib/db-client"
 
 class ApiClient {
   private baseURL = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"
@@ -19,9 +20,27 @@ class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
+    // Get auth token from Supabase client if available
+    let authHeaders = {}
+    if (typeof window !== "undefined") {
+      try {
+        const {
+          data: { session },
+        } = await supabaseClient.auth.getSession()
+        if (session?.access_token) {
+          authHeaders = {
+            Authorization: `Bearer ${session.access_token}`,
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to get auth token:", error)
+      }
+    }
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
+        ...authHeaders,
         ...options.headers,
       },
       ...options,

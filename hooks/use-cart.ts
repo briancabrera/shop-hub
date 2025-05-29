@@ -10,22 +10,28 @@ export function useCart() {
   return useQuery({
     queryKey: ["cart"],
     queryFn: async () => {
-      // Check if user is authenticated first
-      const {
-        data: { session },
-      } = await supabaseClient.auth.getSession()
+      try {
+        // Check if user is authenticated first
+        const {
+          data: { session },
+        } = await supabaseClient.auth.getSession()
 
-      if (!session) {
-        // Return empty cart if not authenticated
+        if (!session) {
+          // Return empty cart if not authenticated
+          return { items: [], total: 0 }
+        }
+
+        return apiClient.cart.get()
+      } catch (error) {
+        console.warn("Cart fetch error:", error)
+        // Return empty cart on error
         return { items: [], total: 0 }
       }
-
-      return apiClient.cart.get()
     },
     staleTime: 1 * 60 * 1000, // 1 minute
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
-      if (error instanceof Error && error.message.includes("sign in")) {
+      if (error instanceof Error && (error.message.includes("sign in") || error.message.includes("401"))) {
         return false
       }
       return failureCount < 2
