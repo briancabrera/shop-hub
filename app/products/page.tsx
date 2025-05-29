@@ -7,7 +7,7 @@ import { ProductFilters } from "@/components/products/product-filters"
 import { ProductSort } from "@/components/products/product-sort"
 import { Pagination } from "@/components/ui/pagination"
 import { Button } from "@/components/ui/button"
-import { Filter } from "lucide-react"
+import { Filter, X } from "lucide-react"
 import { useProducts } from "@/hooks/use-products"
 import type { ProductFilters as ProductFiltersType } from "@/types/api"
 import { SimpleSearchBar } from "@/components/search/simple-search-bar"
@@ -324,14 +324,35 @@ export default function ProductsPage() {
         />
       </div>
 
-      <div className="flex gap-8">
-        {/* Filters Sidebar */}
-        <div className={`${showFilters ? "block" : "hidden"} lg:block w-full lg:w-64 flex-shrink-0`}>
+      <div className="flex flex-col lg:flex-row gap-8 relative">
+        {/* Mobile Filters Overlay */}
+        {showFilters && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={() => setShowFilters(false)} />
+        )}
+
+        {/* Filters Sidebar - Mobile: Overlay, Desktop: Side Column */}
+        <div
+          className={`${
+            showFilters ? "fixed inset-y-0 left-0 z-50 w-80 bg-white p-6 overflow-y-auto" : "hidden"
+          } lg:static lg:block lg:w-64 lg:flex-shrink-0 lg:z-0 lg:p-0 lg:bg-transparent lg:overflow-visible transition-all duration-300 ease-in-out`}
+        >
+          {/* Close button - only on mobile */}
+          {showFilters && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 lg:hidden"
+              onClick={() => setShowFilters(false)}
+            >
+              <X className="h-5 w-5" />
+              <span className="sr-only">Close filters</span>
+            </Button>
+          )}
           <ProductFilters onFilterChange={handleFilterChange} initialFilters={filters} />
         </div>
 
-        {/* Products Grid */}
-        <div className="flex-1">
+        {/* Products Grid - Always Visible */}
+        <div className="flex-1 min-w-0">
           {showProductsSkeleton ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(ITEMS_PER_PAGE)].map((_, i) => (
