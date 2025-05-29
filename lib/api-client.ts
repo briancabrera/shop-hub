@@ -50,51 +50,87 @@ class ApiClient {
       console.log(`API Request: ${options.method || "GET"} ${url}`)
       const response = await fetch(url, config)
 
+      // Special handling for specific endpoints that should return null/empty on error
+      const isUserEndpoint = endpoint.startsWith("/api/user")
+      const isCartEndpoint = endpoint.startsWith("/api/cart")
+
       // Handle non-JSON responses
-      const contentType = response.headers.get("content-type")
-
-      // Special case for cart endpoint - return empty cart on any error
-      if (endpoint.startsWith("/api/cart") && !response.ok) {
-        console.warn(`Cart API error: ${response.status} ${response.statusText}`)
-        return { items: [], total: 0 } as unknown as T
-      }
-
-      // Try to parse JSON response
       let data: ApiResponse<T>
       try {
         data = await response.json()
-      } catch (error) {
-        console.error("Failed to parse JSON response:", error)
-        throw new Error(`Invalid response format: ${contentType || "unknown"}`)
+      } catch (parseError) {
+        console.error("Failed to parse JSON response:", parseError)
+
+        // Return appropriate fallback for specific endpoints
+        if (isCartEndpoint) {
+          return { items: [], total: 0 } as unknown as T
+        }
+        if (isUserEndpoint) {
+          return null as unknown as T
+        }
+
+        throw new Error(`Invalid response format`)
       }
 
       if (!response.ok) {
+        console.warn(`API Error: ${response.status} ${response.statusText} for ${endpoint}`)
+
         // Handle authentication errors specifically
         if (response.status === 401) {
           console.warn("Authentication failed for:", endpoint)
 
-          // For cart endpoint, return empty cart instead of throwing error
-          if (endpoint.startsWith("/api/cart")) {
+          // Return appropriate fallback for specific endpoints
+          if (isCartEndpoint) {
             return { items: [], total: 0 } as unknown as T
+          }
+          if (isUserEndpoint) {
+            return null as unknown as T
           }
 
           throw new Error("Authentication required")
         }
+
+        // Return appropriate fallback for specific endpoints on any error
+        if (isCartEndpoint) {
+          return { items: [], total: 0 } as unknown as T
+        }
+        if (isUserEndpoint) {
+          return null as unknown as T
+        }
+
         throw new Error(data.error || `HTTP error! status: ${response.status}`)
       }
 
       if (!data.success) {
+        console.warn(`API request failed: ${data.error || "Unknown error"} for ${endpoint}`)
+
+        // Return appropriate fallback for specific endpoints
+        if (isCartEndpoint) {
+          return { items: [], total: 0 } as unknown as T
+        }
+        if (isUserEndpoint) {
+          return null as unknown as T
+        }
+
         throw new Error(data.error || "API request failed")
       }
 
       return data.data as T
     } catch (error) {
-      console.error("API request failed:", { url, method: options.method, error })
+      console.error("API request failed:", {
+        url,
+        method: options.method,
+        error: error instanceof Error ? error.message : error,
+      })
 
-      // For cart endpoint, return empty cart on any error
-      if (endpoint.startsWith("/api/cart")) {
+      // Return appropriate fallback for specific endpoints
+      if (isCartEndpoint) {
         console.warn("Returning empty cart due to error")
         return { items: [], total: 0 } as unknown as T
+      }
+      if (isUserEndpoint) {
+        console.warn("Returning null user due to error")
+        return null as unknown as T
       }
 
       if (error instanceof TypeError && error.message.includes("fetch")) {
@@ -158,14 +194,7 @@ class ApiClient {
 
   // Cart API
   cart = {
-    get: () => {
-      try {
-        return this.request("/api/cart")
-      } catch (error) {
-        console.warn("Cart get error:", error)
-        return Promise.resolve({ items: [], total: 0 })
-      }
-    },
+    get: () => this.request("/api/cart"),
 
     add: (item: CartItem) =>
       this.request("/api/cart", {

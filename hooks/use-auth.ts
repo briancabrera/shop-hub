@@ -11,37 +11,45 @@ export function useUser() {
   return useQuery({
     queryKey: ["user"],
     queryFn: async () => {
-      // First check if we have a session
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabaseClient.auth.getSession()
-
-      if (sessionError) {
-        console.error("Session error:", sessionError)
-        return null
-      }
-
-      if (!session?.user) {
-        return null
-      }
-
-      // If we have a session, get user details
       try {
-        return await apiClient.user.getCurrent()
-      } catch (error) {
-        console.error("Failed to get user details:", error)
-        // If API fails, return basic user info from session
-        return {
-          id: session.user.id,
-          email: session.user.email,
-          full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "",
-          created_at: session.user.created_at,
+        // First check if we have a session
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabaseClient.auth.getSession()
+
+        if (sessionError) {
+          console.error("Session error:", sessionError)
+          return null
         }
+
+        if (!session?.user) {
+          console.log("useUser: No session found")
+          return null
+        }
+
+        // If we have a session, try to get user details from API
+        try {
+          const userData = await apiClient.user.getCurrent()
+          return userData
+        } catch (error) {
+          console.warn("Failed to get user details from API:", error)
+          // If API fails, return basic user info from session
+          return {
+            id: session.user.id,
+            email: session.user.email,
+            full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "",
+            created_at: session.user.created_at,
+          }
+        }
+      } catch (error) {
+        console.error("useUser error:", error)
+        return null
       }
     },
     retry: false,
     staleTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
   })
 }
 

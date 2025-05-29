@@ -1,15 +1,18 @@
 import type { NextRequest } from "next/server"
 import { supabaseAdmin } from "@/lib/db"
-import { successResponse, errorResponse } from "@/lib/api-utils"
+import { successResponse } from "@/lib/api-utils"
 
 // GET /api/user - Get current authenticated user
 export async function GET(request: NextRequest) {
   try {
+    console.log("User API: GET request received")
+
     // Get the authorization header
     const authHeader = request.headers.get("authorization")
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return errorResponse("Authentication required", 401)
+      console.log("User API: No auth header, returning null user")
+      return successResponse(null)
     }
 
     const token = authHeader.substring(7) // Remove "Bearer " prefix
@@ -21,7 +24,8 @@ export async function GET(request: NextRequest) {
     } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {
-      return errorResponse("Invalid authentication token", 401)
+      console.log("User API: Invalid token, returning null user")
+      return successResponse(null)
     }
 
     // Return user data directly from Supabase Auth
@@ -32,9 +36,11 @@ export async function GET(request: NextRequest) {
       created_at: user.created_at,
     }
 
+    console.log(`User API: Returning user data for ${user.email}`)
     return successResponse(userData)
   } catch (error) {
     console.error("User API error:", error)
-    return errorResponse("Failed to fetch user", 500)
+    // Return null user instead of error
+    return successResponse(null)
   }
 }
