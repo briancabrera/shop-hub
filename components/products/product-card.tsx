@@ -48,10 +48,17 @@ export function ProductCard({ product }: ProductCardProps) {
       return
     }
 
-    addToCartMutation.mutate({
+    // Prepare cart item with deal information if available
+    const cartItem = {
       product_id: product.id,
       quantity: 1,
-    })
+      deal_id: product.best_deal?.id || null,
+      bundle_id: null,
+    }
+
+    console.log("ProductCard: Adding to cart with deal:", cartItem)
+
+    addToCartMutation.mutate(cartItem)
   }
 
   const formatPrice = (price: number) => {
@@ -159,6 +166,9 @@ export function ProductCard({ product }: ProductCardProps) {
 
             {product.description && <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>}
 
+            {/* Deal Title */}
+            {hasActiveDeal && bestDeal && <p className="text-sm font-medium text-red-600">{bestDeal.title}</p>}
+
             {/* Rating */}
             {product.rating && (
               <div className="flex items-center gap-1">
@@ -229,7 +239,7 @@ export function ProductCard({ product }: ProductCardProps) {
             : product.stock === 0
               ? "Out of Stock"
               : hasActiveDeal
-                ? `Add to Cart - ${formatPrice(discountedPrice || originalPrice)}`
+                ? `Add Deal to Cart - ${formatPrice(discountedPrice || originalPrice)}`
                 : "Add to Cart"}
         </Button>
       </CardFooter>
