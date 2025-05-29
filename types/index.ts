@@ -22,7 +22,9 @@ export interface Product {
 export interface CartItem {
   id: string
   quantity: number
-  product: Product
+  product?: Product
+  bundle?: Bundle
+  is_bundle: boolean
 }
 
 export interface Cart {
@@ -96,11 +98,67 @@ export interface UserLoginInput {
 }
 
 export interface CartItemInput {
-  product_id: string
+  product_id?: string
+  bundle_id?: string
   quantity: number
+  is_bundle?: boolean
 }
 
 export interface CheckoutInput {
   items: CartItemInput[]
   shipping_address: ShippingAddress
+}
+
+// Bundle Types
+export interface Bundle {
+  id: string
+  name: string
+  description: string
+  image_url?: string
+  discount_percentage: number
+  bundle_price: number
+  original_price: number
+  status: "active" | "inactive"
+  featured: boolean
+  start_date?: string
+  end_date?: string
+  created_at: string
+  updated_at: string
+  slug: string
+  products: BundleProduct[]
+}
+
+export interface BundleProduct {
+  id: string
+  bundle_id: string
+  product_id: string
+  quantity: number
+  product?: Product
+}
+
+export interface BundleFilters {
+  status?: string
+  featured?: boolean
+  active?: boolean
+  page?: number
+  limit?: number
+}
+
+// Form input types para bundles
+export interface BundleCreateInput {
+  name: string
+  description: string
+  image_url?: string
+  discount_percentage: number
+  status: "active" | "inactive"
+  featured: boolean
+  start_date?: string
+  end_date?: string
+  slug: string
+  products: BundleProductInput[]
+}
+
+export interface BundleProductInput {
+  product_id: string
+  quantity: number
 }
