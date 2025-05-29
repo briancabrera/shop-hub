@@ -153,6 +153,13 @@ export async function POST(request: NextRequest) {
       const validatedData = cartItemSchema.parse(body)
       console.log("Cart POST: Validated data:", JSON.stringify(validatedData))
 
+      // Normalize null values - convert undefined to null, filter out empty strings
+      const dealId = validatedData.deal_id === undefined || validatedData.deal_id === "" ? null : validatedData.deal_id
+      const bundleId =
+        validatedData.bundle_id === undefined || validatedData.bundle_id === "" ? null : validatedData.bundle_id
+
+      console.log("Cart POST: Normalized IDs - dealId:", dealId, "bundleId:", bundleId)
+
       // Get product information
       console.log("Cart POST: Fetching product:", validatedData.product_id)
       const { data: product, error: productError } = await supabaseAdmin
@@ -188,14 +195,10 @@ export async function POST(request: NextRequest) {
       console.log("Cart POST: Original price:", originalPrice)
 
       // Handle deal if specified
-      if (validatedData.deal_id) {
-        console.log("Cart POST: Processing deal:", validatedData.deal_id)
+      if (dealId) {
+        console.log("Cart POST: Processing deal:", dealId)
 
-        const { data: deal, error: dealError } = await supabaseAdmin
-          .from("deals")
-          .select("*")
-          .eq("id", validatedData.deal_id)
-          .single()
+        const { data: deal, error: dealError } = await supabaseAdmin.from("deals").select("*").eq("id", dealId).single()
 
         if (dealError) {
           console.error("Cart POST: Deal query error:", dealError)
@@ -218,13 +221,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Handle bundle if specified
-      if (validatedData.bundle_id) {
-        console.log("Cart POST: Processing bundle:", validatedData.bundle_id)
+      if (bundleId) {
+        console.log("Cart POST: Processing bundle:", bundleId)
 
         const { data: bundle, error: bundleError } = await supabaseAdmin
           .from("bundles")
           .select("*")
-          .eq("id", validatedData.bundle_id)
+          .eq("id", bundleId)
           .single()
 
         if (bundleError) {
@@ -237,19 +240,34 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Check for existing cart item
+      // Check for existing cart item with proper null handling
       console.log("Cart POST: Checking for existing cart item")
-      const { data: existingItem, error: existingError } = await supabaseAdmin
+
+      let existingItemQuery = supabaseAdmin
         .from("cart_items")
         .select("*")
         .eq("user_id", user.id)
         .eq("product_id", validatedData.product_id)
-        .eq("deal_id", validatedData.deal_id || null)
-        .eq("bundle_id", validatedData.bundle_id || null)
-        .maybeSingle()
+
+      // Handle deal_id comparison
+      if (dealId === null) {
+        existingItemQuery = existingItemQuery.is("deal_id", null)
+      } else {
+        existingItemQuery = existingItemQuery.eq("deal_id", dealId)
+      }
+
+      // Handle bundle_id comparison
+      if (bundleId === null) {
+        existingItemQuery = existingItemQuery.is("bundle_id", null)
+      } else {
+        existingItemQuery = existingItemQuery.eq("bundle_id", bundleId)
+      }
+
+      const { data: existingItem, error: existingError } = await existingItemQuery.maybeSingle()
 
       if (existingError) {
         console.error("Cart POST: Error checking existing item:", existingError)
+        return handleApiError(new Error("Error checking existing cart item"), 500)
       }
 
       let result
@@ -278,8 +296,8 @@ export async function POST(request: NextRequest) {
           user_id: user.id,
           product_id: validatedData.product_id,
           quantity: validatedData.quantity,
-          deal_id: validatedData.deal_id || null,
-          bundle_id: validatedData.bundle_id || null,
+          deal_id: dealId,
+          bundle_id: bundleId,
           original_price: originalPrice,
           discounted_price: discountedPrice,
           discount_amount: discountAmount,

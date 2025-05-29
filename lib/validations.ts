@@ -3,8 +3,8 @@ import { z } from "zod"
 export const cartItemSchema = z.object({
   product_id: z.string().uuid("Invalid product ID"),
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
-  deal_id: z.string().uuid().optional().nullable(),
-  bundle_id: z.string().uuid().optional().nullable(),
+  deal_id: z.string().uuid().optional().or(z.literal("")).or(z.null()),
+  bundle_id: z.string().uuid().optional().or(z.literal("")).or(z.null()),
 })
 
 export const productFiltersSchema = z.object({
