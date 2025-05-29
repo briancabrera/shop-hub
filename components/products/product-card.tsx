@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Star, ShoppingCart } from "lucide-react"
+import { Star, ShoppingCart, Clock, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,10 +13,10 @@ import { useAddToCart } from "@/hooks/use-cart"
 import { useUser } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import type { Product } from "@/types"
+import type { ProductWithDeal } from "@/types"
 
 interface ProductCardProps {
-  product: Product
+  product: ProductWithDeal
 }
 
 export function ProductCard({ product }: ProductCardProps) {
@@ -27,7 +27,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const { toast } = useToast()
 
   const handleAddToCart = async (e: React.MouseEvent) => {
-    e.preventDefault() // Prevent navigation when clicking the button
+    e.preventDefault()
 
     if (!user) {
       toast({
@@ -71,8 +71,43 @@ export function ProductCard({ product }: ProductCardProps) {
     ))
   }
 
+  const calculateTimeRemaining = (endDate: string) => {
+    const now = new Date()
+    const end = new Date(endDate)
+    const diff = end.getTime() - now.getTime()
+
+    if (diff <= 0) return "Expired"
+
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+
+    if (hours > 24) {
+      const days = Math.floor(hours / 24)
+      return `${days}d ${hours % 24}h left`
+    }
+
+    return `${hours}h ${minutes}m left`
+  }
+
+  const bestDeal = product.best_deal
+  const hasActiveDeal = product.has_active_deal
+  const discountedPrice = product.discounted_price
+  const originalPrice = product.price
+
   return (
-    <Card className="group hover:shadow-lg transition-shadow duration-200">
+    <Card className="group hover:shadow-lg transition-all duration-200 relative overflow-hidden">
+      {/* Deal Flash Badge */}
+      {hasActiveDeal && (
+        <div className="absolute top-2 left-2 z-10">
+          <Badge className="bg-gradient-to-r from-red-500 to-orange-500 text-white animate-pulse">
+            <Zap className="w-3 h-3 mr-1" />
+            {bestDeal?.discount_type === "percentage"
+              ? `${bestDeal.discount_value}% OFF`
+              : `$${bestDeal?.discount_value} OFF`}
+          </Badge>
+        </div>
+      )}
+
       <Link href={`/products/${product.id}`} className="block">
         <CardContent className="p-4">
           {/* Product Image */}
@@ -91,20 +126,28 @@ export function ProductCard({ product }: ProductCardProps) {
 
             {/* Stock Badge */}
             {product.stock === 0 && (
-              <Badge variant="destructive" className="absolute top-2 left-2" aria-label="Out of stock">
+              <Badge variant="destructive" className="absolute top-2 right-2" aria-label="Out of stock">
                 Out of Stock
               </Badge>
             )}
 
             {/* Low Stock Badge */}
-            {product.stock > 0 && product.stock <= 5 && (
+            {product.stock > 0 && product.stock <= 5 && !hasActiveDeal && (
               <Badge
                 variant="secondary"
-                className="absolute top-2 left-2 bg-orange-100 text-orange-800"
+                className="absolute top-2 right-2 bg-orange-100 text-orange-800"
                 aria-label={`Only ${product.stock} left in stock`}
               >
                 Only {product.stock} left
               </Badge>
+            )}
+
+            {/* Deal Timer */}
+            {hasActiveDeal && bestDeal && (
+              <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded flex items-center">
+                <Clock className="w-3 h-3 mr-1" />
+                {calculateTimeRemaining(bestDeal.end_date)}
+              </div>
             )}
           </div>
 
@@ -131,10 +174,44 @@ export function ProductCard({ product }: ProductCardProps) {
               {product.category}
             </Badge>
 
-            {/* Price */}
+            {/* Price Section */}
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-gray-900">{formatPrice(product.price)}</span>
+              <div className="flex flex-col">
+                {hasActiveDeal && discountedPrice ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-green-600">{formatPrice(discountedPrice)}</span>
+                      <span className="text-lg text-gray-500 line-through">{formatPrice(originalPrice)}</span>
+                    </div>
+                    <span className="text-sm text-green-600 font-medium">
+                      Save {formatPrice(originalPrice - discountedPrice)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-2xl font-bold text-gray-900">{formatPrice(originalPrice)}</span>
+                )}
+              </div>
             </div>
+
+            {/* Deal Progress */}
+            {hasActiveDeal && bestDeal?.max_uses && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>Deal Progress</span>
+                  <span>
+                    {bestDeal.current_uses}/{bestDeal.max_uses} used
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-orange-400 to-red-500 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min((bestDeal.current_uses / bestDeal.max_uses) * 100, 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Link>
@@ -143,11 +220,17 @@ export function ProductCard({ product }: ProductCardProps) {
         <Button
           onClick={handleAddToCart}
           disabled={product.stock === 0 || addToCartMutation.isPending}
-          className="w-full"
+          className={`w-full ${hasActiveDeal ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : ""}`}
           aria-label={`Add ${product.name} to cart`}
         >
           <ShoppingCart className="w-4 h-4 mr-2" aria-hidden="true" />
-          {addToCartMutation.isPending ? "Adding..." : product.stock === 0 ? "Out of Stock" : "Add to Cart"}
+          {addToCartMutation.isPending
+            ? "Adding..."
+            : product.stock === 0
+              ? "Out of Stock"
+              : hasActiveDeal
+                ? `Add to Cart - ${formatPrice(discountedPrice || originalPrice)}`
+                : "Add to Cart"}
         </Button>
       </CardFooter>
     </Card>
