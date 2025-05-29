@@ -48,28 +48,23 @@ export function ProductCard({ product }: ProductCardProps) {
       return
     }
 
-    // Debug: Log product data
-    console.log("🔍 ProductCard Debug - Full product:", JSON.stringify(product, null, 2))
-    console.log("🔍 ProductCard Debug - Has active deal:", product.has_active_deal)
-    console.log("🔍 ProductCard Debug - Best deal:", product.best_deal)
+    // Determine if we should add with a deal
+    const hasDeal = product.has_active_deal && product.best_deal
+    const dealId = hasDeal ? product.best_deal.id : null
 
-    // Prepare cart item with deal information if available
-    const cartItem = {
-      product_id: product.id,
-      quantity: 1,
-      deal_id: product.has_active_deal && product.best_deal ? product.best_deal.id : null,
-      bundle_id: null,
-    }
-
-    console.log("🚀 ProductCard: Adding to cart with data:", JSON.stringify(cartItem, null, 2))
-
-    // Show loading toast
+    // Show what we're adding
     toast({
       title: "Adding to cart...",
-      description: product.has_active_deal ? `Adding ${product.name} with deal` : `Adding ${product.name}`,
+      description: hasDeal ? `Adding ${product.name} with deal: ${product.best_deal.title}` : `Adding ${product.name}`,
     })
 
-    addToCartMutation.mutate(cartItem)
+    // Add to cart with explicit deal information
+    addToCartMutation.mutate({
+      product_id: product.id,
+      quantity: 1,
+      deal_id: dealId,
+      bundle_id: null,
+    })
   }
 
   const formatPrice = (price: number) => {
