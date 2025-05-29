@@ -1,15 +1,13 @@
-import { HeroSection } from "@/components/home/hero-section"
-import { FeaturedProducts } from "@/components/home/featured-products"
-import { CategoryGrid } from "@/components/home/category-grid"
-import { NewsletterSection } from "@/components/home/newsletter-section"
+import { HeroSection } from "@/components/hero/hero-section"
+import { FeaturedProducts } from "@/components/products/featured-products"
+import { DealsSection } from "@/components/deals/deals-section"
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <div className="space-y-16">
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
       <HeroSection />
+      <DealsSection />
       <FeaturedProducts />
-      <CategoryGrid />
-      <NewsletterSection />
-    </div>
+    </main>
   )
 }
