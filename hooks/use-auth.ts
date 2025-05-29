@@ -46,6 +46,8 @@ export function useSignup() {
 
   return useMutation({
     mutationFn: async (data: UserSignupInput) => {
+      console.log("🔄 Starting signup process for:", data.email)
+
       const { data: authData, error } = await supabaseClient.auth.signUp({
         email: data.email,
         password: data.password,
@@ -53,23 +55,54 @@ export function useSignup() {
           data: {
             full_name: data.full_name,
           },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
-      if (error) throw new Error(error.message)
+      console.log("📧 Supabase signup response:", {
+        user: authData.user ? { id: authData.user.id, email: authData.user.email } : null,
+        session: authData.session ? "Session created" : "No session",
+        error: error ? error.message : "No error",
+      })
+
+      if (error) {
+        console.error("❌ Signup error:", error)
+        throw new Error(error.message)
+      }
+
+      if (!authData.user) {
+        console.error("❌ No user returned from signup")
+        throw new Error("Failed to create user account")
+      }
+
+      console.log("✅ Signup successful for user:", authData.user.id)
       return authData
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("🎉 Signup mutation successful")
       queryClient.invalidateQueries({ queryKey: ["user"] })
-      toast({
-        title: "Account created",
-        description: "Your account has been created successfully. Please check your email for verification.",
-      })
-      router.push("/login")
+
+      if (data.user?.email_confirmed_at) {
+        console.log("✅ Email already confirmed, redirecting to login")
+        toast({
+          title: "Account created",
+          description: "Your account has been created successfully. You can now sign in.",
+        })
+        router.push("/login")
+      } else {
+        console.log("📧 Email confirmation required")
+        toast({
+          title: "Check your email",
+          description: `We've sent a confirmation link to ${data.user?.email}. Please check your email and click the link to activate your account.`,
+          duration: 8000,
+        })
+        // Stay on signup page or redirect to a confirmation page
+      }
     },
     onError: (error: Error) => {
+      console.error("❌ Signup mutation failed:", error.message)
       toast({
-        title: "Error",
+        title: "Signup failed",
         description: error.message,
         variant: "destructive",
       })
@@ -84,15 +117,34 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (data: UserLoginInput) => {
+      console.log("🔄 Starting login process for:", data.email)
+
       const { data: authData, error } = await supabaseClient.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       })
 
-      if (error) throw new Error(error.message)
+      console.log("🔐 Supabase login response:", {
+        user: authData.user ? { id: authData.user.id, email: authData.user.email } : null,
+        session: authData.session ? "Session created" : "No session",
+        error: error ? error.message : "No error",
+      })
+
+      if (error) {
+        console.error("❌ Login error:", error)
+        throw new Error(error.message)
+      }
+
+      if (!authData.user) {
+        console.error("❌ No user returned from login")
+        throw new Error("Login failed")
+      }
+
+      console.log("✅ Login successful for user:", authData.user.id)
       return authData
     },
     onSuccess: () => {
+      console.log("🎉 Login mutation successful")
       queryClient.invalidateQueries({ queryKey: ["user"] })
       toast({
         title: "Welcome back",
@@ -101,8 +153,9 @@ export function useLogin() {
       router.push("/")
     },
     onError: (error: Error) => {
+      console.error("❌ Login mutation failed:", error.message)
       toast({
-        title: "Error",
+        title: "Login failed",
         description: error.message,
         variant: "destructive",
       })
