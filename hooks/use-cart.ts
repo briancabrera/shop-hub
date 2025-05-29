@@ -42,6 +42,8 @@ export function useAddToCart() {
 
   return useMutation({
     mutationFn: async (item: CartItem) => {
+      console.log("useAddToCart: Adding item to cart:", item)
+
       // Check if user is authenticated first
       const {
         data: { session },
@@ -51,9 +53,12 @@ export function useAddToCart() {
         throw new Error("Please sign in to add items to cart")
       }
 
-      return apiClient.cart.add(item)
+      const result = await apiClient.cart.add(item)
+      console.log("useAddToCart: API response:", result)
+      return result
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("useAddToCart: Success, invalidating cart queries")
       queryClient.invalidateQueries({ queryKey: ["cart"] })
       toast({
         title: "Added to cart",
@@ -61,6 +66,7 @@ export function useAddToCart() {
       })
     },
     onError: (error: Error) => {
+      console.error("useAddToCart: Error:", error)
       toast({
         title: "Error",
         description: error.message,

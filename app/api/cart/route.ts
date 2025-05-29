@@ -102,13 +102,33 @@ export async function GET(request: NextRequest) {
 // POST /api/cart - Add product to cart
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const validatedData = cartItemSchema.parse(body)
+    console.log("Cart API: POST request received")
+
+    // Parse request body
+    let body
+    try {
+      body = await request.json()
+      console.log("Cart API: Request body:", body)
+    } catch (error) {
+      console.error("Cart API: Failed to parse request body:", error)
+      return errorResponse("Invalid request body", 400)
+    }
+
+    // Validate request data
+    let validatedData
+    try {
+      validatedData = cartItemSchema.parse(body)
+      console.log("Cart API: Validated data:", validatedData)
+    } catch (error) {
+      console.error("Cart API: Validation error:", error)
+      return handleZodError(error)
+    }
 
     // Get user from authorization header
     const authHeader = request.headers.get("authorization")
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("Cart API: No auth header for POST")
       return errorResponse("Authentication required", 401)
     }
 
@@ -121,51 +141,75 @@ export async function POST(request: NextRequest) {
     } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {
+      console.log("Cart API: Invalid token for POST")
       return errorResponse("Invalid authentication token", 401)
     }
 
     const userId = user.id
+    console.log(`Cart API: Adding item to cart for user ${userId}`)
 
     // Check if product exists and has enough stock
     const { data: product, error: productError } = await supabaseAdmin
       .from("products")
-      .select("stock")
+      .select("id, stock, name")
       .eq("id", validatedData.product_id)
       .single()
 
-    if (productError || !product) {
+    if (productError) {
+      console.error("Cart API: Product query error:", productError)
       return errorResponse("Product not found", 404)
     }
 
+    if (!product) {
+      console.log("Cart API: Product not found:", validatedData.product_id)
+      return errorResponse("Product not found", 404)
+    }
+
+    console.log(`Cart API: Found product ${product.name} with stock ${product.stock}`)
+
     if (product.stock < validatedData.quantity) {
+      console.log(`Cart API: Not enough stock. Requested: ${validatedData.quantity}, Available: ${product.stock}`)
       return errorResponse("Not enough stock available", 400)
     }
 
     // Check if item already exists in cart
-    const { data: existingItem } = await supabaseAdmin
+    const { data: existingItem, error: existingError } = await supabaseAdmin
       .from("cart_items")
       .select("*")
       .eq("user_id", userId)
       .eq("product_id", validatedData.product_id)
-      .single()
+      .maybeSingle() // Use maybeSingle instead of single to avoid error when no item exists
+
+    if (existingError) {
+      console.error("Cart API: Error checking existing item:", existingError)
+      return errorResponse("Database error", 500)
+    }
 
     let result
 
     if (existingItem) {
+      console.log("Cart API: Item already exists in cart, updating quantity")
       // Update quantity if item exists
       const newQuantity = existingItem.quantity + validatedData.quantity
 
       if (newQuantity > product.stock) {
+        console.log(`Cart API: Total quantity would exceed stock. New total: ${newQuantity}, Stock: ${product.stock}`)
         return errorResponse("Not enough stock available", 400)
       }
 
       result = await supabaseAdmin
         .from("cart_items")
-        .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+        .update({
+          quantity: newQuantity,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", existingItem.id)
         .select()
         .single()
+
+      console.log("Cart API: Updated existing item:", result)
     } else {
+      console.log("Cart API: Adding new item to cart")
       // Add new item to cart
       result = await supabaseAdmin
         .from("cart_items")
@@ -176,21 +220,28 @@ export async function POST(request: NextRequest) {
         })
         .select()
         .single()
+
+      console.log("Cart API: Inserted new item:", result)
     }
 
     if (result.error) {
+      console.error("Cart API: Database operation error:", result.error)
       return errorResponse(result.error.message, 500)
     }
 
+    console.log("Cart API: Successfully added/updated cart item")
     return successResponse(result.data, 201)
   } catch (error) {
-    return handleZodError(error)
+    console.error("Cart API: Unexpected error in POST:", error)
+    return errorResponse("Internal server error", 500)
   }
 }
 
 // DELETE /api/cart - Clear cart or remove specific item
 export async function DELETE(request: NextRequest) {
   try {
+    console.log("Cart API: DELETE request received")
+
     // Get user from authorization header
     const authHeader = request.headers.get("authorization")
 
@@ -218,9 +269,11 @@ export async function DELETE(request: NextRequest) {
     let query = supabaseAdmin.from("cart_items").delete()
 
     if (itemId) {
+      console.log(`Cart API: Deleting specific item ${itemId} for user ${userId}`)
       // Delete specific item
       query = query.eq("id", itemId).eq("user_id", userId)
     } else {
+      console.log(`Cart API: Clearing entire cart for user ${userId}`)
       // Clear entire cart
       query = query.eq("user_id", userId)
     }
@@ -228,11 +281,14 @@ export async function DELETE(request: NextRequest) {
     const { error } = await query
 
     if (error) {
+      console.error("Cart API: Delete operation error:", error)
       return errorResponse(error.message, 500)
     }
 
+    console.log("Cart API: Successfully deleted cart item(s)")
     return successResponse({ message: itemId ? "Item removed from cart" : "Cart cleared" })
   } catch (error) {
+    console.error("Cart API: Unexpected error in DELETE:", error)
     return errorResponse("Failed to delete cart items", 500)
   }
 }
