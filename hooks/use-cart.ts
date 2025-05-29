@@ -4,30 +4,44 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/client"
 import { useToast } from "@/hooks/use-toast"
 import { supabaseClient } from "@/lib/supabase/client"
-import type { Cart, CartItemInput } from "@/types"
-
-const EMPTY_CART: Cart = { items: [], total: 0 }
+import type { CartItemInput } from "@/types"
 
 export function useCart() {
   return useQuery({
     queryKey: ["cart"],
-    queryFn: async (): Promise<Cart> => {
+    queryFn: async () => {
       try {
         const {
           data: { session },
         } = await supabaseClient.auth.getSession()
 
         if (!session?.user) {
-          return EMPTY_CART
+          return {
+            items: [],
+            total: 0,
+            original_total: 0,
+            total_savings: 0,
+            deal_items: [],
+            bundle_items: [],
+            regular_items: [],
+          }
         }
 
         return await apiClient.cart.get()
-      } catch {
-        return EMPTY_CART
+      } catch (error) {
+        console.error("Error fetching cart:", error)
+        return {
+          items: [],
+          total: 0,
+          original_total: 0,
+          total_savings: 0,
+          deal_items: [],
+          bundle_items: [],
+          regular_items: [],
+        }
       }
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
-    retry: false,
   })
 }
 
@@ -37,6 +51,8 @@ export function useAddToCart() {
 
   return useMutation({
     mutationFn: async (item: CartItemInput) => {
+      console.log("useAddToCart: Adding item to cart:", item)
+
       const {
         data: { session },
       } = await supabaseClient.auth.getSession()
@@ -45,7 +61,14 @@ export function useAddToCart() {
         throw new Error("Please sign in to add items to your cart")
       }
 
-      await apiClient.cart.add(item)
+      try {
+        const result = await apiClient.cart.add(item)
+        console.log("useAddToCart: Success response:", result)
+        return result
+      } catch (error) {
+        console.error("useAddToCart: Error adding to cart:", error)
+        throw error
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] })
@@ -55,9 +78,10 @@ export function useAddToCart() {
       })
     },
     onError: (error: Error) => {
+      console.error("useAddToCart onError:", error)
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to add item to cart",
         variant: "destructive",
       })
     },
@@ -70,7 +94,7 @@ export function useRemoveFromCart() {
 
   return useMutation({
     mutationFn: async (itemId: string) => {
-      await apiClient.cart.remove(itemId)
+      return await apiClient.cart.remove(itemId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] })
@@ -82,7 +106,7 @@ export function useRemoveFromCart() {
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to remove item from cart",
         variant: "destructive",
       })
     },

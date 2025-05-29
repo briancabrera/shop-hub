@@ -152,11 +152,12 @@ export interface UserLoginInput {
   password: string
 }
 
+// Definición de CartItemInput
 export interface CartItemInput {
   product_id: string
   quantity: number
-  deal_id?: string
-  bundle_id?: string
+  deal_id?: string | null
+  bundle_id?: string | null
 }
 
 export interface CheckoutInput {

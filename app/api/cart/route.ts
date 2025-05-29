@@ -138,178 +138,189 @@ export async function POST(request: NextRequest) {
 
     console.log("Cart POST: User authenticated:", user.id)
 
-    // Parse and validate request body
+    // Parse request body
     let body
     try {
       body = await request.json()
-      console.log("Cart POST: Request body:", body)
+      console.log("Cart POST: Request body:", JSON.stringify(body))
     } catch (error) {
       console.error("Cart POST: Failed to parse JSON:", error)
       return handleApiError(new Error("Invalid JSON in request body"), 400)
     }
 
-    let validatedData
+    // Validate request data
     try {
-      validatedData = cartItemSchema.parse(body)
-      console.log("Cart POST: Validated data:", validatedData)
-    } catch (error) {
-      console.error("Cart POST: Validation error:", error)
-      return handleApiError(new Error("Invalid request data"), 400)
-    }
+      const validatedData = cartItemSchema.parse(body)
+      console.log("Cart POST: Validated data:", JSON.stringify(validatedData))
 
-    // Get product information
-    console.log("Cart POST: Fetching product:", validatedData.product_id)
-    const { data: product, error: productError } = await supabaseAdmin
-      .from("products")
-      .select("id, name, price, stock")
-      .eq("id", validatedData.product_id)
-      .single()
-
-    if (productError || !product) {
-      console.error("Cart POST: Product not found:", productError)
-      return handleApiError(new Error("Product not found"), 404)
-    }
-
-    console.log("Cart POST: Product found:", product.name, "Price:", product.price)
-
-    if (product.stock < validatedData.quantity) {
-      console.log("Cart POST: Insufficient stock")
-      return handleApiError(new Error("Not enough stock available"), 400)
-    }
-
-    // Initialize pricing
-    const originalPrice = Number(product.price) || 0
-    let discountedPrice = originalPrice
-    let discountAmount = 0
-    let dealInfo = null
-    let bundleInfo = null
-
-    console.log("Cart POST: Original price:", originalPrice)
-
-    // Handle deal if specified
-    if (validatedData.deal_id) {
-      console.log("Cart POST: Processing deal:", validatedData.deal_id)
-
-      const { data: deal, error: dealError } = await supabaseAdmin
-        .from("deals")
-        .select("*")
-        .eq("id", validatedData.deal_id)
-        .eq("product_id", validatedData.product_id)
+      // Get product information
+      console.log("Cart POST: Fetching product:", validatedData.product_id)
+      const { data: product, error: productError } = await supabaseAdmin
+        .from("products")
+        .select("id, name, price, stock")
+        .eq("id", validatedData.product_id)
         .single()
 
-      if (dealError) {
-        console.error("Cart POST: Deal query error:", dealError)
-      } else if (deal && isValidDeal(deal)) {
-        console.log("Cart POST: Valid deal found:", deal.title)
-        dealInfo = deal
-        discountedPrice = calculateDealPrice(originalPrice, deal)
-        discountAmount = originalPrice - discountedPrice
-        console.log("Cart POST: Deal price calculated:", discountedPrice)
-      } else {
-        console.log("Cart POST: Deal not valid or not found")
+      if (productError) {
+        console.error("Cart POST: Product query error:", productError)
+        return handleApiError(new Error("Product not found"), 404)
       }
-    }
 
-    // Handle bundle if specified
-    if (validatedData.bundle_id) {
-      console.log("Cart POST: Processing bundle:", validatedData.bundle_id)
-
-      const { data: bundle, error: bundleError } = await supabaseAdmin
-        .from("bundles")
-        .select("*")
-        .eq("id", validatedData.bundle_id)
-        .single()
-
-      if (bundleError) {
-        console.error("Cart POST: Bundle query error:", bundleError)
-      } else if (bundle && isValidBundle(bundle)) {
-        console.log("Cart POST: Valid bundle found:", bundle.title)
-        bundleInfo = bundle
-      } else {
-        console.log("Cart POST: Bundle not valid or not found")
+      if (!product) {
+        console.log("Cart POST: Product not found")
+        return handleApiError(new Error("Product not found"), 404)
       }
-    }
 
-    // Check for existing cart item
-    console.log("Cart POST: Checking for existing cart item")
-    const { data: existingItem, error: existingError } = await supabaseAdmin
-      .from("cart_items")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("product_id", validatedData.product_id)
-      .eq("deal_id", validatedData.deal_id || null)
-      .eq("bundle_id", validatedData.bundle_id || null)
-      .maybeSingle()
+      console.log("Cart POST: Product found:", product.name, "Price:", product.price)
 
-    if (existingError) {
-      console.error("Cart POST: Error checking existing item:", existingError)
-    }
-
-    let result
-
-    if (existingItem) {
-      console.log("Cart POST: Updating existing item")
-      const newQuantity = existingItem.quantity + validatedData.quantity
-
-      if (newQuantity > product.stock) {
+      if (product.stock < validatedData.quantity) {
+        console.log("Cart POST: Insufficient stock")
         return handleApiError(new Error("Not enough stock available"), 400)
       }
 
-      result = await supabaseAdmin
-        .from("cart_items")
-        .update({
-          quantity: newQuantity,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingItem.id)
-        .select()
-        .single()
-    } else {
-      console.log("Cart POST: Creating new cart item")
+      // Initialize pricing
+      const originalPrice = Number(product.price) || 0
+      let discountedPrice = originalPrice
+      let discountAmount = 0
+      let dealInfo = null
+      let bundleInfo = null
 
-      const insertData = {
-        user_id: user.id,
-        product_id: validatedData.product_id,
-        quantity: validatedData.quantity,
-        deal_id: validatedData.deal_id || null,
-        bundle_id: validatedData.bundle_id || null,
-        original_price: originalPrice,
-        discounted_price: discountedPrice,
-        discount_amount: discountAmount,
-      }
+      console.log("Cart POST: Original price:", originalPrice)
 
-      console.log("Cart POST: Insert data:", insertData)
+      // Handle deal if specified
+      if (validatedData.deal_id) {
+        console.log("Cart POST: Processing deal:", validatedData.deal_id)
 
-      result = await supabaseAdmin.from("cart_items").insert(insertData).select().single()
-    }
-
-    if (result.error) {
-      console.error("Cart POST: Database operation error:", result.error)
-      throw new Error(result.error.message)
-    }
-
-    console.log("Cart POST: Successfully added/updated cart item")
-
-    // Update usage counters (only for new items)
-    if (!existingItem) {
-      if (dealInfo) {
-        console.log("Cart POST: Incrementing deal usage")
-        await supabaseAdmin
+        const { data: deal, error: dealError } = await supabaseAdmin
           .from("deals")
-          .update({ current_uses: (dealInfo.current_uses || 0) + 1 })
-          .eq("id", dealInfo.id)
+          .select("*")
+          .eq("id", validatedData.deal_id)
+          .single()
+
+        if (dealError) {
+          console.error("Cart POST: Deal query error:", dealError)
+        } else if (deal) {
+          console.log("Cart POST: Deal found:", deal.title)
+
+          // Check if deal is valid
+          if (isValidDeal(deal)) {
+            console.log("Cart POST: Deal is valid")
+            dealInfo = deal
+            discountedPrice = calculateDealPrice(originalPrice, deal)
+            discountAmount = originalPrice - discountedPrice
+            console.log("Cart POST: Discounted price:", discountedPrice)
+          } else {
+            console.log("Cart POST: Deal is not valid")
+          }
+        } else {
+          console.log("Cart POST: Deal not found")
+        }
       }
 
-      if (bundleInfo) {
-        console.log("Cart POST: Incrementing bundle usage")
-        await supabaseAdmin
+      // Handle bundle if specified
+      if (validatedData.bundle_id) {
+        console.log("Cart POST: Processing bundle:", validatedData.bundle_id)
+
+        const { data: bundle, error: bundleError } = await supabaseAdmin
           .from("bundles")
-          .update({ current_uses: (bundleInfo.current_uses || 0) + 1 })
-          .eq("id", bundleInfo.id)
-      }
-    }
+          .select("*")
+          .eq("id", validatedData.bundle_id)
+          .single()
 
-    return createResponse(result.data, 201)
+        if (bundleError) {
+          console.error("Cart POST: Bundle query error:", bundleError)
+        } else if (bundle && isValidBundle(bundle)) {
+          console.log("Cart POST: Valid bundle found:", bundle.title)
+          bundleInfo = bundle
+        } else {
+          console.log("Cart POST: Bundle not valid or not found")
+        }
+      }
+
+      // Check for existing cart item
+      console.log("Cart POST: Checking for existing cart item")
+      const { data: existingItem, error: existingError } = await supabaseAdmin
+        .from("cart_items")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("product_id", validatedData.product_id)
+        .eq("deal_id", validatedData.deal_id || null)
+        .eq("bundle_id", validatedData.bundle_id || null)
+        .maybeSingle()
+
+      if (existingError) {
+        console.error("Cart POST: Error checking existing item:", existingError)
+      }
+
+      let result
+
+      if (existingItem) {
+        console.log("Cart POST: Updating existing item")
+        const newQuantity = existingItem.quantity + validatedData.quantity
+
+        if (newQuantity > product.stock) {
+          return handleApiError(new Error("Not enough stock available"), 400)
+        }
+
+        result = await supabaseAdmin
+          .from("cart_items")
+          .update({
+            quantity: newQuantity,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingItem.id)
+          .select()
+          .single()
+      } else {
+        console.log("Cart POST: Creating new cart item")
+
+        const insertData = {
+          user_id: user.id,
+          product_id: validatedData.product_id,
+          quantity: validatedData.quantity,
+          deal_id: validatedData.deal_id || null,
+          bundle_id: validatedData.bundle_id || null,
+          original_price: originalPrice,
+          discounted_price: discountedPrice,
+          discount_amount: discountAmount,
+        }
+
+        console.log("Cart POST: Insert data:", JSON.stringify(insertData))
+
+        result = await supabaseAdmin.from("cart_items").insert(insertData).select().single()
+      }
+
+      if (result.error) {
+        console.error("Cart POST: Database operation error:", result.error)
+        return handleApiError(new Error(result.error.message), 500)
+      }
+
+      console.log("Cart POST: Successfully added/updated cart item")
+
+      // Update usage counters (only for new items)
+      if (!existingItem) {
+        if (dealInfo) {
+          console.log("Cart POST: Incrementing deal usage")
+          await supabaseAdmin
+            .from("deals")
+            .update({ current_uses: (dealInfo.current_uses || 0) + 1 })
+            .eq("id", dealInfo.id)
+        }
+
+        if (bundleInfo) {
+          console.log("Cart POST: Incrementing bundle usage")
+          await supabaseAdmin
+            .from("bundles")
+            .update({ current_uses: (bundleInfo.current_uses || 0) + 1 })
+            .eq("id", bundleInfo.id)
+        }
+      }
+
+      return createResponse(result.data, 201)
+    } catch (error) {
+      console.error("Cart POST: Validation or processing error:", error)
+      return handleApiError(error)
+    }
   } catch (error) {
     console.error("Cart POST: Unexpected error:", error)
     return handleApiError(error)
@@ -351,29 +362,67 @@ export async function DELETE(request: NextRequest) {
 
 // Helper functions
 function isValidDeal(deal: any): boolean {
-  const now = new Date()
-  return (
-    deal.is_active &&
-    now >= new Date(deal.start_date) &&
-    now <= new Date(deal.end_date) &&
-    (deal.max_uses === null || (deal.current_uses || 0) < deal.max_uses)
-  )
+  if (!deal) return false
+
+  try {
+    const now = new Date()
+    const startDate = new Date(deal.start_date)
+    const endDate = new Date(deal.end_date)
+
+    return (
+      deal.is_active === true &&
+      !isNaN(startDate.getTime()) &&
+      !isNaN(endDate.getTime()) &&
+      now >= startDate &&
+      now <= endDate &&
+      (deal.max_uses === null || (deal.current_uses || 0) < deal.max_uses)
+    )
+  } catch (error) {
+    console.error("Error validating deal:", error)
+    return false
+  }
 }
 
 function isValidBundle(bundle: any): boolean {
-  const now = new Date()
-  return (
-    bundle.is_active &&
-    now >= new Date(bundle.start_date) &&
-    now <= new Date(bundle.end_date) &&
-    (bundle.max_uses === null || (bundle.current_uses || 0) < bundle.max_uses)
-  )
+  if (!bundle) return false
+
+  try {
+    const now = new Date()
+    const startDate = new Date(bundle.start_date)
+    const endDate = new Date(bundle.end_date)
+
+    return (
+      bundle.is_active === true &&
+      !isNaN(startDate.getTime()) &&
+      !isNaN(endDate.getTime()) &&
+      now >= startDate &&
+      now <= endDate &&
+      (bundle.max_uses === null || (bundle.current_uses || 0) < bundle.max_uses)
+    )
+  } catch (error) {
+    console.error("Error validating bundle:", error)
+    return false
+  }
 }
 
 function calculateDealPrice(originalPrice: number, deal: any): number {
-  if (deal.discount_type === "percentage") {
-    return Math.round(originalPrice * (1 - Number(deal.discount_value) / 100) * 100) / 100
-  } else {
-    return Math.max(0, Math.round((originalPrice - Number(deal.discount_value)) * 100) / 100)
+  try {
+    if (!deal || !originalPrice) return originalPrice
+
+    const price = Number(originalPrice)
+    if (isNaN(price)) return originalPrice
+
+    if (deal.discount_type === "percentage") {
+      const discountValue = Number(deal.discount_value)
+      if (isNaN(discountValue)) return price
+      return Math.round(price * (1 - discountValue / 100) * 100) / 100
+    } else {
+      const discountValue = Number(deal.discount_value)
+      if (isNaN(discountValue)) return price
+      return Math.max(0, Math.round((price - discountValue) * 100) / 100)
+    }
+  } catch (error) {
+    console.error("Error calculating deal price:", error)
+    return originalPrice
   }
 }

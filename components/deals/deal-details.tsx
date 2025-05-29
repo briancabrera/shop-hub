@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { useCart } from "@/hooks/use-cart"
 import type { Deal } from "@/types/deals"
 import { calculateDealPrice, formatTimeRemaining, getDiscountBadgeColor, isValidDeal } from "@/lib/deals/utils"
+import { useAddToCart } from "@/hooks/use-cart"
 
 interface DealDetailsProps {
   deal: Deal & {
@@ -24,7 +24,7 @@ export function DealDetails({ deal }: DealDetailsProps) {
   const [quantity, setQuantity] = useState(1)
   const [isWishlisted, setIsWishlisted] = useState(false)
   const { toast } = useToast()
-  const { addToCartMutation } = useCart()
+  const addToCartMutation = useAddToCart()
 
   const isValid = isValidDeal(deal)
   const originalPrice = deal.product?.price || 0
@@ -36,13 +36,27 @@ export function DealDetails({ deal }: DealDetailsProps) {
   // Calculate progress for limited deals
   const usageProgress = deal.max_uses ? (deal.current_uses / deal.max_uses) * 100 : 0
 
-  const handleAddToCart = () => {
-    if (!isValid || deal.product.stock === 0) return
+  const handleAddToCart = async () => {
+    try {
+      console.log("Adding deal to cart:", {
+        product_id: deal.product.id,
+        quantity,
+        deal_id: deal.id,
+      })
 
-    addToCartMutation.mutate({
-      product_id: deal.product.id,
-      quantity,
-    })
+      await addToCartMutation.mutate({
+        product_id: deal.product.id,
+        quantity,
+        deal_id: deal.id,
+      })
+    } catch (error) {
+      console.error("Error adding deal to cart:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add deal to cart",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleShare = async () => {
@@ -66,6 +80,7 @@ export function DealDetails({ deal }: DealDetailsProps) {
       toast({
         title: "Link copied!",
         description: "Deal link copied to clipboard",
+        variant: "destructive",
       })
     }
   }
