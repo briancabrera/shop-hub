@@ -31,7 +31,13 @@ export function useUser() {
         return await apiClient.user.getCurrent()
       } catch (error) {
         console.error("Failed to get user details:", error)
-        return null
+        // If API fails, return basic user info from session
+        return {
+          id: session.user.id,
+          email: session.user.email,
+          full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "",
+          created_at: session.user.created_at,
+        }
       }
     },
     retry: false,

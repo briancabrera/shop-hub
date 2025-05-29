@@ -24,15 +24,12 @@ export async function GET(request: NextRequest) {
       return errorResponse("Invalid authentication token", 401)
     }
 
-    // Get user details from our database
-    const { data: userData, error } = await supabaseAdmin
-      .from("users")
-      .select("id, email, full_name, created_at")
-      .eq("id", user.id)
-      .single()
-
-    if (error) {
-      return errorResponse("User not found", 404)
+    // Return user data directly from Supabase Auth
+    const userData = {
+      id: user.id,
+      email: user.email,
+      full_name: user.user_metadata?.full_name || user.user_metadata?.name || "",
+      created_at: user.created_at,
     }
 
     return successResponse(userData)

@@ -60,7 +60,8 @@ class ApiClient {
       if (!response.ok) {
         // Handle authentication errors specifically
         if (response.status === 401) {
-          throw new Error("Please sign in to continue")
+          console.warn("Authentication failed for:", endpoint)
+          throw new Error("Authentication required")
         }
         throw new Error(data.error || `HTTP error! status: ${response.status}`)
       }
