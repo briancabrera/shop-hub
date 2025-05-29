@@ -1,7 +1,6 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { apiClient } from "@/lib/api-client"
 import type { UserSignupInput, UserLoginInput } from "@/types/api"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -12,7 +11,9 @@ export function useUser() {
     queryKey: ["user"],
     queryFn: async () => {
       try {
-        // First check if we have a session
+        console.log("useUser: Checking session...")
+
+        // Get session directly from Supabase
         const {
           data: { session },
           error: sessionError,
@@ -28,28 +29,27 @@ export function useUser() {
           return null
         }
 
-        // If we have a session, try to get user details from API
-        try {
-          const userData = await apiClient.user.getCurrent()
-          return userData
-        } catch (error) {
-          console.warn("Failed to get user details from API:", error)
-          // If API fails, return basic user info from session
-          return {
-            id: session.user.id,
-            email: session.user.email,
-            full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "",
-            created_at: session.user.created_at,
-          }
+        console.log("useUser: Session found for user:", session.user.email)
+
+        // Return user data directly from session instead of making API call
+        const userData = {
+          id: session.user.id,
+          email: session.user.email || "",
+          full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "",
+          created_at: session.user.created_at || "",
         }
+
+        console.log("useUser: Returning user data:", userData)
+        return userData
       } catch (error) {
         console.error("useUser error:", error)
         return null
       }
     },
     retry: false,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
+    refetchOnMount: true,
   })
 }
 
@@ -110,7 +110,6 @@ export function useSignup() {
           description: `We've sent a confirmation link to ${data.user?.email}. Please check your email and click the link to activate your account.`,
           duration: 8000,
         })
-        // Stay on signup page or redirect to a confirmation page
       }
     },
     onError: (error: Error) => {

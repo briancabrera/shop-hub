@@ -16,23 +16,21 @@ export function useCart() {
           data: { session },
         } = await supabaseClient.auth.getSession()
 
-        if (!session) {
-          // Return empty cart if not authenticated
+        if (!session?.user) {
           console.log("useCart: No session, returning empty cart")
           return { items: [], total: 0 }
         }
 
-        const result = await apiClient.cart.get()
-        return result
+        console.log("useCart: Fetching cart for user:", session.user.email)
+        return await apiClient.cart.get()
       } catch (error) {
-        console.warn("Cart fetch error:", error)
-        // Return empty cart on error
+        console.warn("useCart: Error fetching cart, returning empty cart:", error)
         return { items: [], total: 0 }
       }
     },
-    staleTime: 1 * 60 * 1000, // 1 minute
-    retry: false, // Don't retry on failure
-    refetchOnWindowFocus: false, // Don't refetch on window focus
+    retry: false,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -42,23 +40,19 @@ export function useAddToCart() {
 
   return useMutation({
     mutationFn: async (item: CartItem) => {
-      console.log("useAddToCart: Adding item to cart:", item)
-
-      // Check if user is authenticated first
+      // Check authentication before adding to cart
       const {
         data: { session },
       } = await supabaseClient.auth.getSession()
 
-      if (!session) {
-        throw new Error("Please sign in to add items to cart")
+      if (!session?.user) {
+        throw new Error("Please log in to add items to your cart")
       }
 
-      const result = await apiClient.cart.add(item)
-      console.log("useAddToCart: API response:", result)
-      return result
+      console.log("useAddToCart: Adding item to cart:", item)
+      return await apiClient.cart.add(item)
     },
-    onSuccess: (data) => {
-      console.log("useAddToCart: Success, invalidating cart queries")
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] })
       toast({
         title: "Added to cart",
@@ -66,7 +60,7 @@ export function useAddToCart() {
       })
     },
     onError: (error: Error) => {
-      console.error("useAddToCart: Error:", error)
+      console.error("useAddToCart: Error adding to cart:", error)
       toast({
         title: "Error",
         description: error.message,
@@ -81,17 +75,8 @@ export function useRemoveFromCart() {
   const { toast } = useToast()
 
   return useMutation({
-    mutationFn: async (itemId?: string) => {
-      // Check if user is authenticated first
-      const {
-        data: { session },
-      } = await supabaseClient.auth.getSession()
-
-      if (!session) {
-        throw new Error("Please sign in to modify cart")
-      }
-
-      return apiClient.cart.remove(itemId)
+    mutationFn: async (itemId: string) => {
+      return await apiClient.cart.remove(itemId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] })
@@ -116,16 +101,7 @@ export function useClearCart() {
 
   return useMutation({
     mutationFn: async () => {
-      // Check if user is authenticated first
-      const {
-        data: { session },
-      } = await supabaseClient.auth.getSession()
-
-      if (!session) {
-        throw new Error("Please sign in to clear cart")
-      }
-
-      return apiClient.cart.clear()
+      return await apiClient.cart.clear()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] })
