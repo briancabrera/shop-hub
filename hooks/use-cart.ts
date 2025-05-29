@@ -18,10 +18,12 @@ export function useCart() {
 
         if (!session) {
           // Return empty cart if not authenticated
+          console.log("useCart: No session, returning empty cart")
           return { items: [], total: 0 }
         }
 
-        return apiClient.cart.get()
+        const result = await apiClient.cart.get()
+        return result
       } catch (error) {
         console.warn("Cart fetch error:", error)
         // Return empty cart on error
@@ -30,6 +32,7 @@ export function useCart() {
     },
     staleTime: 1 * 60 * 1000, // 1 minute
     retry: false, // Don't retry on failure
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   })
 }
 

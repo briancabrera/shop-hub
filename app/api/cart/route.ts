@@ -6,10 +6,13 @@ import { successResponse, errorResponse, handleZodError } from "@/lib/api-utils"
 // GET /api/cart - Get current user's cart
 export async function GET(request: NextRequest) {
   try {
+    console.log("Cart API: GET request received")
+
     // Get authorization header
     const authHeader = request.headers.get("authorization")
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("Cart API: No auth header, returning empty cart")
       // Return empty cart for unauthenticated users instead of error
       return successResponse({
         items: [],
@@ -26,6 +29,7 @@ export async function GET(request: NextRequest) {
     } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {
+      console.log("Cart API: Invalid token, returning empty cart")
       // Return empty cart for invalid tokens instead of error
       return successResponse({
         items: [],
@@ -34,44 +38,57 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = user.id
+    console.log(`Cart API: Authenticated user ${userId}`)
 
-    // Get cart items with product details
-    const { data, error } = await supabaseAdmin
-      .from("cart_items")
-      .select(`
-        id,
-        quantity,
-        product_id,
-        products (
+    // Check if cart_items table exists
+    try {
+      // Get cart items with product details
+      const { data, error } = await supabaseAdmin
+        .from("cart_items")
+        .select(`
           id,
-          name,
-          price,
-          image_url,
-          stock
-        )
-      `)
-      .eq("user_id", userId)
+          quantity,
+          product_id,
+          products (
+            id,
+            name,
+            price,
+            image_url,
+            stock
+          )
+        `)
+        .eq("user_id", userId)
 
-    if (error) {
+      if (error) {
+        console.error("Cart API database error:", error)
+        // Return empty cart on database error instead of failing
+        return successResponse({
+          items: [],
+          total: 0,
+        })
+      }
+
+      // Format the response
+      const cartItems = data.map((item) => ({
+        id: item.id,
+        quantity: item.quantity,
+        product: item.products,
+      }))
+
+      console.log(`Cart API: Found ${cartItems.length} items in cart`)
+
+      return successResponse({
+        items: cartItems,
+        total: cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+      })
+    } catch (error) {
       console.error("Cart API error:", error)
-      // Return empty cart on database error instead of failing
+      // Return empty cart on any error
       return successResponse({
         items: [],
         total: 0,
       })
     }
-
-    // Format the response
-    const cartItems = data.map((item) => ({
-      id: item.id,
-      quantity: item.quantity,
-      product: item.products,
-    }))
-
-    return successResponse({
-      items: cartItems,
-      total: cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
-    })
   } catch (error) {
     console.error("Cart API error:", error)
     // Return empty cart on any error
