@@ -8,6 +8,9 @@ import { Star, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAddToCart } from "@/hooks/use-cart"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import { useUser } from "@/hooks/use-auth"
 
 interface Product {
   id: string
@@ -25,9 +28,24 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const addToCartMutation = useAddToCart()
+  const { toast } = useToast()
+  const router = useRouter()
+  const { data: user } = useUser()
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
+
+    // Check if user is logged in
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to add items to your cart",
+        variant: "destructive",
+      })
+      router.push("/login")
+      return
+    }
+
     addToCartMutation.mutate({
       product_id: product.id,
       quantity: 1,

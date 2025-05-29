@@ -12,8 +12,8 @@ import { useUser, useLogout } from "@/hooks/use-auth"
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const { data: cartData } = useCart()
-  const { data: userData } = useUser()
+  const { data: cartData, isLoading: cartLoading } = useCart()
+  const { data: userData, isLoading: userLoading } = useUser()
   const logoutMutation = useLogout()
 
   const itemCount = cartData?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0
@@ -59,7 +59,7 @@ export function Navbar() {
             <Link href="/cart">
               <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="w-5 h-5" />
-                {itemCount > 0 && (
+                {!cartLoading && itemCount > 0 && (
                   <Badge className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center p-0 text-xs">
                     {itemCount}
                   </Badge>
@@ -75,7 +75,7 @@ export function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {userData ? (
+                {!userLoading && userData ? (
                   <>
                     <DropdownMenuItem asChild>
                       <Link href="/profile">Profile</Link>

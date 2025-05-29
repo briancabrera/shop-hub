@@ -29,13 +29,7 @@ export function useCart() {
       }
     },
     staleTime: 1 * 60 * 1000, // 1 minute
-    retry: (failureCount, error) => {
-      // Don't retry on authentication errors
-      if (error instanceof Error && (error.message.includes("sign in") || error.message.includes("401"))) {
-        return false
-      }
-      return failureCount < 2
-    },
+    retry: false, // Don't retry on failure
   })
 }
 
