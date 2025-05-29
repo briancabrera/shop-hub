@@ -23,16 +23,22 @@ export function DealsSection() {
   const { data: bundles, isLoading: bundlesLoading, error: bundlesError } = useActiveBundles()
   const addToCartMutation = useAddToCart()
 
-  const handleAddToCart = (productId: string) => {
+  const handleAddToCart = (dealId: string) => {
+    console.log("🔥 Adding DEAL from deals section:", dealId)
     addToCartMutation.mutate({
-      product_id: productId,
+      item_type: "deal",
+      deal_id: dealId,
       quantity: 1,
     })
   }
 
   const handleAddBundleToCart = (bundleId: string) => {
-    // In a real implementation, you would handle bundle cart logic
-    console.log("Adding bundle to cart:", bundleId)
+    console.log("🎁 Adding BUNDLE from deals section:", bundleId)
+    addToCartMutation.mutate({
+      item_type: "bundle",
+      bundle_id: bundleId,
+      quantity: 1,
+    })
   }
 
   const sortedDeals = deals?.sort((a, b) => {

@@ -122,7 +122,7 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
 
           {onAddToCart && (
             <Button onClick={() => onAddToCart(bundle.id)} className="flex-1" disabled={!isValid}>
-              Add Bundle
+              Add Bundle to Cart
             </Button>
           )}
         </div>

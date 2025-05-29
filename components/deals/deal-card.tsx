@@ -102,11 +102,11 @@ export function DealCard({ deal, onAddToCart }: DealCardProps) {
 
           {onAddToCart && (
             <Button
-              onClick={() => onAddToCart(deal.product!.id)}
+              onClick={() => onAddToCart(deal.id)}
               className="flex-1"
               disabled={!isValid || deal.product.stock === 0}
             >
-              {deal.product.stock === 0 ? "Out of Stock" : "Add to Cart"}
+              {deal.product.stock === 0 ? "Out of Stock" : "Add Deal to Cart"}
             </Button>
           )}
         </div>
