@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Star, ShoppingCart, Clock, Zap } from "lucide-react"
+import { Star, ShoppingCart, Clock, Zap, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -48,12 +48,15 @@ export function ProductCard({ product }: ProductCardProps) {
       return
     }
 
-    // Add product to cart
-    addToCartMutation.mutate({
+    // Add regular product to cart
+    const cartItem = {
       item_type: "product",
       product_id: product.id,
       quantity: 1,
-    })
+    }
+
+    console.log("🔵 Adding PRODUCT to cart:", JSON.stringify(cartItem, null, 2))
+    addToCartMutation.mutate(cartItem)
   }
 
   const handleAddDeal = async (e: React.MouseEvent) => {
@@ -88,11 +91,14 @@ export function ProductCard({ product }: ProductCardProps) {
     }
 
     // Add deal to cart
-    addToCartMutation.mutate({
+    const cartItem = {
       item_type: "deal",
       deal_id: product.best_deal.id,
       quantity: 1,
-    })
+    }
+
+    console.log("🔴 Adding DEAL to cart:", JSON.stringify(cartItem, null, 2))
+    addToCartMutation.mutate(cartItem)
   }
 
   const formatPrice = (price: number) => {
@@ -201,7 +207,12 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.description && <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>}
 
             {/* Deal Title */}
-            {hasActiveDeal && bestDeal && <p className="text-sm font-medium text-red-600">{bestDeal.title}</p>}
+            {hasActiveDeal && bestDeal && (
+              <div className="flex items-center gap-1">
+                <Tag className="w-3 h-3 text-red-500" />
+                <p className="text-sm font-medium text-red-600">{bestDeal.title}</p>
+              </div>
+            )}
 
             {/* Rating */}
             {product.rating && (
@@ -260,7 +271,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </CardContent>
       </Link>
 
-      <CardFooter className="p-4 pt-0 space-y-2">
+      <CardFooter className="p-4 pt-0 flex flex-col gap-2">
         {/* Deal Button */}
         {hasActiveDeal && (
           <Button
@@ -269,7 +280,7 @@ export function ProductCard({ product }: ProductCardProps) {
             className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
             aria-label={`Add ${product.name} deal to cart`}
           >
-            <ShoppingCart className="w-4 h-4 mr-2" aria-hidden="true" />
+            <Tag className="w-4 h-4 mr-2" aria-hidden="true" />
             {addToCartMutation.isPending
               ? "Adding Deal..."
               : product.stock === 0
