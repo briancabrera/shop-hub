@@ -1,55 +1,37 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { UserSignupInput, UserLoginInput } from "@/types/api"
-import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-import { supabaseClient } from "@/lib/db-client"
+import { supabaseClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
+import type { User, UserSignupInput, UserLoginInput } from "@/types"
 
 export function useUser() {
   return useQuery({
     queryKey: ["user"],
-    queryFn: async () => {
+    queryFn: async (): Promise<User | null> => {
       try {
-        console.log("useUser: Checking session...")
-
-        // Get session directly from Supabase
         const {
           data: { session },
-          error: sessionError,
+          error,
         } = await supabaseClient.auth.getSession()
 
-        if (sessionError) {
-          console.error("Session error:", sessionError)
+        if (error || !session?.user) {
           return null
         }
 
-        if (!session?.user) {
-          console.log("useUser: No session found")
-          return null
-        }
-
-        console.log("useUser: Session found for user:", session.user.email)
-
-        // Return user data directly from session instead of making API call
-        const userData = {
+        return {
           id: session.user.id,
           email: session.user.email || "",
-          full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || "",
+          full_name: session.user.user_metadata?.full_name || "",
           created_at: session.user.created_at || "",
         }
-
-        console.log("useUser: Returning user data:", userData)
-        return userData
-      } catch (error) {
-        console.error("useUser error:", error)
+      } catch {
         return null
       }
     },
-    retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
+    retry: false,
   })
 }
 
@@ -60,60 +42,38 @@ export function useSignup() {
 
   return useMutation({
     mutationFn: async (data: UserSignupInput) => {
-      console.log("🔄 Starting signup process for:", data.email)
-
       const { data: authData, error } = await supabaseClient.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
-          data: {
-            full_name: data.full_name,
-          },
+          data: { full_name: data.full_name },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
-      console.log("📧 Supabase signup response:", {
-        user: authData.user ? { id: authData.user.id, email: authData.user.email } : null,
-        session: authData.session ? "Session created" : "No session",
-        error: error ? error.message : "No error",
-      })
+      if (error) throw new Error(error.message)
+      if (!authData.user) throw new Error("Failed to create account")
 
-      if (error) {
-        console.error("❌ Signup error:", error)
-        throw new Error(error.message)
-      }
-
-      if (!authData.user) {
-        console.error("❌ No user returned from signup")
-        throw new Error("Failed to create user account")
-      }
-
-      console.log("✅ Signup successful for user:", authData.user.id)
       return authData
     },
     onSuccess: (data) => {
-      console.log("🎉 Signup mutation successful")
       queryClient.invalidateQueries({ queryKey: ["user"] })
 
       if (data.user?.email_confirmed_at) {
-        console.log("✅ Email already confirmed, redirecting to login")
         toast({
           title: "Account created",
-          description: "Your account has been created successfully. You can now sign in.",
+          description: "You can now sign in.",
         })
         router.push("/login")
       } else {
-        console.log("📧 Email confirmation required")
         toast({
           title: "Check your email",
-          description: `We've sent a confirmation link to ${data.user?.email}. Please check your email and click the link to activate your account.`,
+          description: "Please click the confirmation link to activate your account.",
           duration: 8000,
         })
       }
     },
     onError: (error: Error) => {
-      console.error("❌ Signup mutation failed:", error.message)
       toast({
         title: "Signup failed",
         description: error.message,
@@ -130,34 +90,14 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (data: UserLoginInput) => {
-      console.log("🔄 Starting login process for:", data.email)
+      const { data: authData, error } = await supabaseClient.auth.signInWithPassword(data)
 
-      const { data: authData, error } = await supabaseClient.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      })
+      if (error) throw new Error(error.message)
+      if (!authData.user) throw new Error("Login failed")
 
-      console.log("🔐 Supabase login response:", {
-        user: authData.user ? { id: authData.user.id, email: authData.user.email } : null,
-        session: authData.session ? "Session created" : "No session",
-        error: error ? error.message : "No error",
-      })
-
-      if (error) {
-        console.error("❌ Login error:", error)
-        throw new Error(error.message)
-      }
-
-      if (!authData.user) {
-        console.error("❌ No user returned from login")
-        throw new Error("Login failed")
-      }
-
-      console.log("✅ Login successful for user:", authData.user.id)
       return authData
     },
     onSuccess: () => {
-      console.log("🎉 Login mutation successful")
       queryClient.invalidateQueries({ queryKey: ["user"] })
       toast({
         title: "Welcome back",
@@ -166,7 +106,6 @@ export function useLogin() {
       router.push("/")
     },
     onError: (error: Error) => {
-      console.error("❌ Login mutation failed:", error.message)
       toast({
         title: "Login failed",
         description: error.message,
@@ -185,11 +124,9 @@ export function useLogout() {
     mutationFn: async () => {
       const { error } = await supabaseClient.auth.signOut()
       if (error) throw new Error(error.message)
-      return true
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user"] })
-      queryClient.invalidateQueries({ queryKey: ["cart"] })
+      queryClient.clear()
       toast({
         title: "Signed out",
         description: "You have been signed out successfully",

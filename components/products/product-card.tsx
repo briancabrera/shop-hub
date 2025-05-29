@@ -2,40 +2,33 @@
 
 import type React from "react"
 
+import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Star, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAddToCart } from "@/hooks/use-cart"
-import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
 import { useUser } from "@/hooks/use-auth"
-
-interface Product {
-  id: string
-  name: string
-  price: number
-  originalPrice?: number
-  image_url?: string
-  rating?: number
-  stock: number
-}
+import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import type { Product } from "@/types"
 
 interface ProductCardProps {
   product: Product
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const addToCartMutation = useAddToCart()
-  const { toast } = useToast()
-  const router = useRouter()
+  const [isImageLoading, setIsImageLoading] = useState(true)
   const { data: user } = useUser()
+  const addToCartMutation = useAddToCart()
+  const router = useRouter()
+  const { toast } = useToast()
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault()
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.preventDefault() // Prevent navigation when clicking the button
 
-    // Check if user is logged in
     if (!user) {
       toast({
         title: "Sign in required",
@@ -46,70 +39,117 @@ export function ProductCard({ product }: ProductCardProps) {
       return
     }
 
+    if (product.stock === 0) {
+      toast({
+        title: "Out of stock",
+        description: "This product is currently out of stock",
+        variant: "destructive",
+      })
+      return
+    }
+
     addToCartMutation.mutate({
       product_id: product.id,
       quantity: 1,
     })
   }
 
-  const discount = product.originalPrice
-    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-    : 0
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(price)
+  }
+
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`w-4 h-4 ${i < Math.floor(rating) ? "text-yellow-400 fill-current" : "text-gray-300"}`}
+        aria-hidden="true"
+      />
+    ))
+  }
 
   return (
-    <div className="group relative bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-      <Link href={`/products/${product.id}`}>
-        <div className="aspect-square overflow-hidden bg-gray-100">
-          <Image
-            src={product.image_url || "/placeholder.svg?height=300&width=300&query=product"}
-            alt={product.name}
-            width={300}
-            height={300}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        </div>
+    <Card className="group hover:shadow-lg transition-shadow duration-200">
+      <Link href={`/products/${product.id}`} className="block">
+        <CardContent className="p-4">
+          {/* Product Image */}
+          <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100">
+            {isImageLoading && <div className="absolute inset-0 bg-gray-200 animate-pulse" />}
+            <Image
+              src={product.image_url || "/placeholder.svg?height=300&width=300"}
+              alt={product.name}
+              fill
+              className={`object-cover transition-transform duration-200 group-hover:scale-105 ${
+                isImageLoading ? "opacity-0" : "opacity-100"
+              }`}
+              onLoad={() => setIsImageLoading(false)}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
 
-        {discount > 0 && <Badge className="absolute top-2 left-2 bg-red-500">-{discount}%</Badge>}
+            {/* Stock Badge */}
+            {product.stock === 0 && (
+              <Badge variant="destructive" className="absolute top-2 left-2" aria-label="Out of stock">
+                Out of Stock
+              </Badge>
+            )}
 
-        <div className="p-4">
-          <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
-
-          <div className="flex items-center mb-2">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`w-4 h-4 ${
-                    i < Math.floor(product.rating || 0) ? "text-yellow-400 fill-current" : "text-gray-300"
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-sm text-gray-500 ml-2">({product.rating || 0})</span>
+            {/* Low Stock Badge */}
+            {product.stock > 0 && product.stock <= 5 && (
+              <Badge
+                variant="secondary"
+                className="absolute top-2 left-2 bg-orange-100 text-orange-800"
+                aria-label={`Only ${product.stock} left in stock`}
+              >
+                Only {product.stock} left
+              </Badge>
+            )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold text-gray-900">${product.price.toFixed(2)}</span>
-              {product.originalPrice && (
-                <span className="text-sm text-gray-500 line-through">${product.originalPrice.toFixed(2)}</span>
-              )}
+          {/* Product Info */}
+          <div className="space-y-2">
+            <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-blue-600 transition-colors">
+              {product.name}
+            </h3>
+
+            {product.description && <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>}
+
+            {/* Rating */}
+            {product.rating && (
+              <div className="flex items-center gap-1">
+                <div className="flex" role="img" aria-label={`${product.rating} out of 5 stars`}>
+                  {renderStars(product.rating)}
+                </div>
+                <span className="text-sm text-gray-600 ml-1">({product.rating.toFixed(1)})</span>
+              </div>
+            )}
+
+            {/* Category */}
+            <Badge variant="outline" className="text-xs">
+              {product.category}
+            </Badge>
+
+            {/* Price */}
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold text-gray-900">{formatPrice(product.price)}</span>
             </div>
           </div>
-        </div>
+        </CardContent>
       </Link>
 
-      <div className="p-4 pt-0">
+      <CardFooter className="p-4 pt-0">
         <Button
           onClick={handleAddToCart}
+          disabled={product.stock === 0 || addToCartMutation.isPending}
           className="w-full"
-          size="sm"
-          disabled={addToCartMutation.isPending || product.stock === 0}
+          aria-label={`Add ${product.name} to cart`}
         >
-          <ShoppingCart className="w-4 h-4 mr-2" />
+          <ShoppingCart className="w-4 h-4 mr-2" aria-hidden="true" />
           {addToCartMutation.isPending ? "Adding..." : product.stock === 0 ? "Out of Stock" : "Add to Cart"}
         </Button>
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   )
 }
