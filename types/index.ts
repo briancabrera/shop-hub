@@ -6,6 +6,47 @@ export interface User {
   created_at: string
 }
 
+export interface Deal {
+  id: string
+  product_id: string
+  title: string
+  description?: string
+  discount_type: "percentage" | "fixed"
+  discount_value: number
+  start_date: string
+  end_date: string
+  is_active: boolean
+  max_uses?: number
+  current_uses: number
+  product?: Product
+}
+
+export interface Bundle {
+  id: string
+  title: string
+  description?: string
+  discount_type: "percentage" | "fixed"
+  discount_value: number
+  start_date: string
+  end_date: string
+  is_active: boolean
+  max_uses?: number
+  current_uses: number
+  image_url?: string
+  items?: BundleItem[]
+  original_price?: number
+  discounted_price?: number
+  savings?: number
+}
+
+export interface BundleItem {
+  id: string
+  bundle_id: string
+  product_id: string
+  quantity: number
+  product?: Product
+}
+
 export interface Product {
   id: string
   name: string
@@ -17,17 +58,33 @@ export interface Product {
   rating?: number
   created_at: string
   updated_at: string
+  deal?: Deal
+  has_deal?: boolean
+  discounted_price?: number
+  savings?: number
 }
 
 export interface CartItem {
   id: string
   quantity: number
   product: Product
+  deal_id?: string
+  bundle_id?: string
+  original_price: number
+  discounted_price: number
+  discount_amount: number
+  deal?: Deal
+  bundle?: Bundle
 }
 
 export interface Cart {
   items: CartItem[]
   total: number
+  original_total: number
+  total_savings: number
+  deal_items: CartItem[]
+  bundle_items: CartItem[]
+  regular_items: CartItem[]
 }
 
 export interface Order {
@@ -98,6 +155,8 @@ export interface UserLoginInput {
 export interface CartItemInput {
   product_id: string
   quantity: number
+  deal_id?: string
+  bundle_id?: string
 }
 
 export interface CheckoutInput {
