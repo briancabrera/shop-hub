@@ -21,9 +21,9 @@ export function useCart() {
             total: 0,
             original_total: 0,
             total_savings: 0,
+            product_items: [],
             deal_items: [],
             bundle_items: [],
-            regular_items: [],
           }
         }
 
@@ -35,9 +35,9 @@ export function useCart() {
           total: 0,
           original_total: 0,
           total_savings: 0,
+          product_items: [],
           deal_items: [],
           bundle_items: [],
-          regular_items: [],
         }
       }
     },
@@ -52,13 +52,6 @@ export function useAddToCart() {
   return useMutation({
     mutationFn: async (item: CartItemInput) => {
       console.log("useAddToCart: Adding item to cart:", item)
-
-      // Debug: Verify the item structure
-      console.log("🔍 useAddToCart Debug - Item structure:")
-      console.log("  - product_id:", item.product_id, "Type:", typeof item.product_id)
-      console.log("  - quantity:", item.quantity, "Type:", typeof item.quantity)
-      console.log("  - deal_id:", item.deal_id, "Type:", typeof item.deal_id)
-      console.log("  - bundle_id:", item.bundle_id, "Type:", typeof item.bundle_id)
 
       const {
         data: { session },
@@ -77,11 +70,19 @@ export function useAddToCart() {
         throw error
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["cart"] })
+
+      let message = "Item has been added to your cart"
+      if (variables.item_type === "deal") {
+        message = "Deal has been added to your cart"
+      } else if (variables.item_type === "bundle") {
+        message = "Bundle has been added to your cart"
+      }
+
       toast({
         title: "Added to cart",
-        description: "Item has been added to your cart",
+        description: message,
       })
     },
     onError: (error: Error) => {

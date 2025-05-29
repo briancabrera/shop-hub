@@ -67,14 +67,17 @@ export interface Product {
 export interface CartItem {
   id: string
   quantity: number
-  product: Product
+  item_type: "product" | "deal" | "bundle"
+  product_id?: string
   deal_id?: string
   bundle_id?: string
   original_price: number
   discounted_price: number
   discount_amount: number
-  deal?: Deal
-  bundle?: Bundle
+  // Related data
+  product?: Product
+  deal?: Deal & { product?: Product }
+  bundle?: Bundle & { items?: BundleItem[] }
 }
 
 export interface Cart {
@@ -82,9 +85,9 @@ export interface Cart {
   total: number
   original_total: number
   total_savings: number
+  product_items: CartItem[]
   deal_items: CartItem[]
   bundle_items: CartItem[]
-  regular_items: CartItem[]
 }
 
 export interface Order {
@@ -152,12 +155,13 @@ export interface UserLoginInput {
   password: string
 }
 
-// Definición de CartItemInput
+// Cart input types - now supports different item types
 export interface CartItemInput {
-  product_id: string
+  item_type: "product" | "deal" | "bundle"
+  product_id?: string
+  deal_id?: string
+  bundle_id?: string
   quantity: number
-  deal_id?: string | null
-  bundle_id?: string | null
 }
 
 export interface CheckoutInput {

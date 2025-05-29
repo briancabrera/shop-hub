@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { createResponse, handleApiError, getAuthenticatedUser } from "@/lib/api/utils"
-import { cartItemSchema } from "@/lib/validations"
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,9 +12,9 @@ export async function GET(request: NextRequest) {
         total: 0,
         original_total: 0,
         total_savings: 0,
+        product_items: [],
         deal_items: [],
         bundle_items: [],
-        regular_items: [],
       })
     }
 
@@ -24,6 +23,7 @@ export async function GET(request: NextRequest) {
       .select(`
         id,
         quantity,
+        item_type,
         product_id,
         deal_id,
         bundle_id,
@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
           image_url,
           stock,
           category,
-          rating
+          rating,
+          description
         ),
         deals (
           id,
@@ -49,7 +50,18 @@ export async function GET(request: NextRequest) {
           end_date,
           is_active,
           max_uses,
-          current_uses
+          current_uses,
+          product_id,
+          products (
+            id,
+            name,
+            price,
+            image_url,
+            stock,
+            category,
+            rating,
+            description
+          )
         ),
         bundles (
           id,
@@ -62,7 +74,22 @@ export async function GET(request: NextRequest) {
           is_active,
           max_uses,
           current_uses,
-          image_url
+          image_url,
+          bundle_items (
+            id,
+            quantity,
+            product_id,
+            products (
+              id,
+              name,
+              price,
+              image_url,
+              stock,
+              category,
+              rating,
+              description
+            )
+          )
         )
       `)
       .eq("user_id", user.id)
@@ -74,29 +101,41 @@ export async function GET(request: NextRequest) {
         total: 0,
         original_total: 0,
         total_savings: 0,
+        product_items: [],
         deal_items: [],
         bundle_items: [],
-        regular_items: [],
       })
     }
 
     const cartItems = data.map((item) => ({
       id: item.id,
       quantity: item.quantity,
-      product: item.products,
+      item_type: item.item_type,
+      product_id: item.product_id,
       deal_id: item.deal_id,
       bundle_id: item.bundle_id,
-      original_price: item.original_price || item.products?.price || 0,
-      discounted_price: item.discounted_price || item.products?.price || 0,
+      original_price: item.original_price || 0,
+      discounted_price: item.discounted_price || 0,
       discount_amount: item.discount_amount || 0,
-      deal: item.deals,
-      bundle: item.bundles,
+      product: item.products,
+      deal: item.deals
+        ? {
+            ...item.deals,
+            product: item.deals.products,
+          }
+        : null,
+      bundle: item.bundles
+        ? {
+            ...item.bundles,
+            items: item.bundles.bundle_items,
+          }
+        : null,
     }))
 
-    // Categorizar items
-    const dealItems = cartItems.filter((item) => item.deal_id)
-    const bundleItems = cartItems.filter((item) => item.bundle_id)
-    const regularItems = cartItems.filter((item) => !item.deal_id && !item.bundle_id)
+    // Categorizar items por tipo
+    const productItems = cartItems.filter((item) => item.item_type === "product")
+    const dealItems = cartItems.filter((item) => item.item_type === "deal")
+    const bundleItems = cartItems.filter((item) => item.item_type === "bundle")
 
     // Calcular totales
     const total = cartItems.reduce((sum, item) => sum + (item.discounted_price || 0) * item.quantity, 0)
@@ -108,9 +147,9 @@ export async function GET(request: NextRequest) {
       total,
       original_total: originalTotal,
       total_savings: totalSavings,
+      product_items: productItems,
       deal_items: dealItems,
       bundle_items: bundleItems,
-      regular_items: regularItems,
     })
   } catch (error) {
     console.error("Cart API error:", error)
@@ -119,9 +158,9 @@ export async function GET(request: NextRequest) {
       total: 0,
       original_total: 0,
       total_savings: 0,
+      product_items: [],
       deal_items: [],
       bundle_items: [],
-      regular_items: [],
     })
   }
 }
@@ -133,96 +172,161 @@ export async function POST(request: NextRequest) {
       return handleApiError(new Error("Authentication required"), 401)
     }
 
-    // Parse request body
     const body = await request.json()
+    console.log("Cart POST: Request body:", JSON.stringify(body))
 
-    // Validate request data
-    const validatedData = cartItemSchema.parse(body)
-
-    // Normalize null values - convert undefined to null, filter out empty strings
-    const dealId = validatedData.deal_id || null
-    const bundleId = validatedData.bundle_id || null
-
-    // Get product information
-    const { data: product, error: productError } = await supabaseAdmin
-      .from("products")
-      .select("id, name, price, stock")
-      .eq("id", validatedData.product_id)
-      .single()
-
-    if (productError || !product) {
-      return handleApiError(new Error("Product not found"), 404)
+    // Validate required fields
+    if (!body.item_type || !["product", "deal", "bundle"].includes(body.item_type)) {
+      return handleApiError(new Error("Invalid item_type"), 400)
     }
 
-    if (product.stock < validatedData.quantity) {
-      return handleApiError(new Error("Not enough stock available"), 400)
+    if (!body.quantity || body.quantity < 1) {
+      return handleApiError(new Error("Invalid quantity"), 400)
     }
 
-    // Initialize pricing
-    const originalPrice = Number(product.price) || 0
-    let discountedPrice = originalPrice
+    const itemType = body.item_type
+    const quantity = body.quantity
+
+    let itemId: string
+    let originalPrice = 0
+    let discountedPrice = 0
     let discountAmount = 0
-    let dealInfo = null
-    let bundleInfo = null
 
-    // Handle deal if specified
-    if (dealId) {
-      const { data: deal, error: dealError } = await supabaseAdmin.from("deals").select("*").eq("id", dealId).single()
-
-      if (!dealError && deal) {
-        // Check if deal is valid
-        if (isValidDeal(deal)) {
-          dealInfo = deal
-          discountedPrice = calculateDealPrice(originalPrice, deal)
-          discountAmount = originalPrice - discountedPrice
+    // Determine which ID to use based on item type
+    switch (itemType) {
+      case "product":
+        if (!body.product_id) {
+          return handleApiError(new Error("product_id required for product items"), 400)
         }
-      }
+        itemId = body.product_id
+
+        // Get product information
+        const { data: product, error: productError } = await supabaseAdmin
+          .from("products")
+          .select("id, name, price, stock")
+          .eq("id", itemId)
+          .single()
+
+        if (productError || !product) {
+          return handleApiError(new Error("Product not found"), 404)
+        }
+
+        if (product.stock < quantity) {
+          return handleApiError(new Error("Not enough stock available"), 400)
+        }
+
+        originalPrice = Number(product.price) || 0
+        discountedPrice = originalPrice
+        break
+
+      case "deal":
+        if (!body.deal_id) {
+          return handleApiError(new Error("deal_id required for deal items"), 400)
+        }
+        itemId = body.deal_id
+
+        // Get deal and product information
+        const { data: deal, error: dealError } = await supabaseAdmin
+          .from("deals")
+          .select(`
+            *,
+            products (id, name, price, stock)
+          `)
+          .eq("id", itemId)
+          .single()
+
+        if (dealError || !deal) {
+          return handleApiError(new Error("Deal not found"), 404)
+        }
+
+        if (!isValidDeal(deal)) {
+          return handleApiError(new Error("Deal is not active or expired"), 400)
+        }
+
+        if (deal.products.stock < quantity) {
+          return handleApiError(new Error("Not enough stock available"), 400)
+        }
+
+        originalPrice = Number(deal.products.price) || 0
+        discountedPrice = calculateDealPrice(originalPrice, deal)
+        discountAmount = originalPrice - discountedPrice
+        break
+
+      case "bundle":
+        if (!body.bundle_id) {
+          return handleApiError(new Error("bundle_id required for bundle items"), 400)
+        }
+        itemId = body.bundle_id
+
+        // Get bundle information
+        const { data: bundle, error: bundleError } = await supabaseAdmin
+          .from("bundles")
+          .select(`
+            *,
+            bundle_items (
+              quantity,
+              products (id, name, price, stock)
+            )
+          `)
+          .eq("id", itemId)
+          .single()
+
+        if (bundleError || !bundle) {
+          return handleApiError(new Error("Bundle not found"), 404)
+        }
+
+        if (!isValidBundle(bundle)) {
+          return handleApiError(new Error("Bundle is not active or expired"), 400)
+        }
+
+        // Check stock for all bundle items
+        for (const bundleItem of bundle.bundle_items) {
+          if (bundleItem.products.stock < bundleItem.quantity * quantity) {
+            return handleApiError(new Error(`Not enough stock for ${bundleItem.products.name}`), 400)
+          }
+        }
+
+        // Calculate bundle pricing
+        originalPrice = bundle.bundle_items.reduce((sum, item) => sum + Number(item.products.price) * item.quantity, 0)
+        discountedPrice = calculateBundlePrice(originalPrice, bundle)
+        discountAmount = originalPrice - discountedPrice
+        break
+
+      default:
+        return handleApiError(new Error("Invalid item type"), 400)
     }
 
-    // Handle bundle if specified
-    if (bundleId) {
-      const { data: bundle, error: bundleError } = await supabaseAdmin
-        .from("bundles")
-        .select("*")
-        .eq("id", bundleId)
-        .single()
-
-      if (!bundleError && bundle && isValidBundle(bundle)) {
-        bundleInfo = bundle
-      }
-    }
-
-    // Check for existing cart item with proper null handling
+    // Check for existing cart item
     let existingItemQuery = supabaseAdmin
       .from("cart_items")
       .select("*")
       .eq("user_id", user.id)
-      .eq("product_id", validatedData.product_id)
+      .eq("item_type", itemType)
 
-    // Handle deal_id comparison
-    if (dealId === null) {
-      existingItemQuery = existingItemQuery.is("deal_id", null)
-    } else {
-      existingItemQuery = existingItemQuery.eq("deal_id", dealId)
-    }
-
-    // Handle bundle_id comparison
-    if (bundleId === null) {
-      existingItemQuery = existingItemQuery.is("bundle_id", null)
-    } else {
-      existingItemQuery = existingItemQuery.eq("bundle_id", bundleId)
+    switch (itemType) {
+      case "product":
+        existingItemQuery = existingItemQuery.eq("product_id", itemId)
+        break
+      case "deal":
+        existingItemQuery = existingItemQuery.eq("deal_id", itemId)
+        break
+      case "bundle":
+        existingItemQuery = existingItemQuery.eq("bundle_id", itemId)
+        break
     }
 
     const { data: existingItem, error: existingError } = await existingItemQuery.maybeSingle()
 
+    if (existingError) {
+      console.error("Error checking existing item:", existingError)
+      return handleApiError(new Error("Error checking existing cart item"), 500)
+    }
+
     let result
 
     if (existingItem) {
-      const newQuantity = existingItem.quantity + validatedData.quantity
-
-      if (newQuantity > product.stock) {
-        return handleApiError(new Error("Not enough stock available"), 400)
-      }
+      // Update existing item
+      const newQuantity = existingItem.quantity + quantity
 
       result = await supabaseAdmin
         .from("cart_items")
@@ -234,43 +338,51 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
     } else {
-      const insertData = {
+      // Create new cart item
+      const insertData: any = {
         user_id: user.id,
-        product_id: validatedData.product_id,
-        quantity: validatedData.quantity,
-        deal_id: dealId,
-        bundle_id: bundleId,
+        item_type: itemType,
+        quantity: quantity,
         original_price: originalPrice,
         discounted_price: discountedPrice,
         discount_amount: discountAmount,
       }
 
+      // Set the appropriate ID field
+      switch (itemType) {
+        case "product":
+          insertData.product_id = itemId
+          break
+        case "deal":
+          insertData.deal_id = itemId
+          break
+        case "bundle":
+          insertData.bundle_id = itemId
+          break
+      }
+
+      console.log("Cart POST: Insert data:", JSON.stringify(insertData))
+
       result = await supabaseAdmin.from("cart_items").insert(insertData).select().single()
     }
 
     if (result.error) {
+      console.error("Database operation error:", result.error)
       return handleApiError(new Error(result.error.message), 500)
     }
 
-    // Update usage counters (only for new items)
-    if (!existingItem) {
-      if (dealInfo) {
-        await supabaseAdmin
-          .from("deals")
-          .update({ current_uses: (dealInfo.current_uses || 0) + 1 })
-          .eq("id", dealInfo.id)
-      }
-
-      if (bundleInfo) {
-        await supabaseAdmin
-          .from("bundles")
-          .update({ current_uses: (bundleInfo.current_uses || 0) + 1 })
-          .eq("id", bundleInfo.id)
-      }
+    // Update usage counters for deals and bundles
+    if (!existingItem && (itemType === "deal" || itemType === "bundle")) {
+      const table = itemType === "deal" ? "deals" : "bundles"
+      await supabaseAdmin
+        .from(table)
+        .update({ current_uses: supabaseAdmin.raw("current_uses + 1") })
+        .eq("id", itemId)
     }
 
     return createResponse(result.data, 201)
   } catch (error) {
+    console.error("Cart POST error:", error)
     return handleApiError(error)
   }
 }
@@ -371,6 +483,28 @@ function calculateDealPrice(originalPrice: number, deal: any): number {
     }
   } catch (error) {
     console.error("Error calculating deal price:", error)
+    return originalPrice
+  }
+}
+
+function calculateBundlePrice(originalPrice: number, bundle: any): number {
+  try {
+    if (!bundle || !originalPrice) return originalPrice
+
+    const price = Number(originalPrice)
+    if (isNaN(price)) return originalPrice
+
+    if (bundle.discount_type === "percentage") {
+      const discountValue = Number(bundle.discount_value)
+      if (isNaN(discountValue)) return price
+      return Math.round(price * (1 - discountValue / 100) * 100) / 100
+    } else {
+      const discountValue = Number(bundle.discount_value)
+      if (isNaN(discountValue)) return price
+      return Math.max(0, Math.round((price - discountValue) * 100) / 100)
+    }
+  } catch (error) {
+    console.error("Error calculating bundle price:", error)
     return originalPrice
   }
 }

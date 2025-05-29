@@ -26,7 +26,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const router = useRouter()
   const { toast } = useToast()
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
+  const handleAddProduct = async (e: React.MouseEvent) => {
     e.preventDefault()
 
     if (!user) {
@@ -48,22 +48,50 @@ export function ProductCard({ product }: ProductCardProps) {
       return
     }
 
-    // Determine if we should add with a deal
-    const hasDeal = product.has_active_deal && product.best_deal
-    const dealId = hasDeal ? product.best_deal.id : null
-
-    // Show what we're adding
-    toast({
-      title: "Adding to cart...",
-      description: hasDeal ? `Adding ${product.name} with deal: ${product.best_deal.title}` : `Adding ${product.name}`,
-    })
-
-    // Add to cart with explicit deal information
+    // Add product to cart
     addToCartMutation.mutate({
+      item_type: "product",
       product_id: product.id,
       quantity: 1,
-      deal_id: dealId,
-      bundle_id: null,
+    })
+  }
+
+  const handleAddDeal = async (e: React.MouseEvent) => {
+    e.preventDefault()
+
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to add items to your cart",
+        variant: "destructive",
+      })
+      router.push("/login")
+      return
+    }
+
+    if (product.stock === 0) {
+      toast({
+        title: "Out of stock",
+        description: "This product is currently out of stock",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!product.best_deal) {
+      toast({
+        title: "Deal not available",
+        description: "This deal is no longer available",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Add deal to cart
+    addToCartMutation.mutate({
+      item_type: "deal",
+      deal_id: product.best_deal.id,
+      quantity: 1,
     })
   }
 
@@ -232,11 +260,30 @@ export function ProductCard({ product }: ProductCardProps) {
         </CardContent>
       </Link>
 
-      <CardFooter className="p-4 pt-0">
+      <CardFooter className="p-4 pt-0 space-y-2">
+        {/* Deal Button */}
+        {hasActiveDeal && (
+          <Button
+            onClick={handleAddDeal}
+            disabled={product.stock === 0 || addToCartMutation.isPending}
+            className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+            aria-label={`Add ${product.name} deal to cart`}
+          >
+            <ShoppingCart className="w-4 h-4 mr-2" aria-hidden="true" />
+            {addToCartMutation.isPending
+              ? "Adding Deal..."
+              : product.stock === 0
+                ? "Out of Stock"
+                : `Add Deal - ${formatPrice(discountedPrice || originalPrice)}`}
+          </Button>
+        )}
+
+        {/* Regular Product Button */}
         <Button
-          onClick={handleAddToCart}
+          onClick={handleAddProduct}
           disabled={product.stock === 0 || addToCartMutation.isPending}
-          className={`w-full ${hasActiveDeal ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600" : ""}`}
+          variant={hasActiveDeal ? "outline" : "default"}
+          className="w-full"
           aria-label={`Add ${product.name} to cart`}
         >
           <ShoppingCart className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -244,9 +291,7 @@ export function ProductCard({ product }: ProductCardProps) {
             ? "Adding..."
             : product.stock === 0
               ? "Out of Stock"
-              : hasActiveDeal
-                ? `Add Deal to Cart - ${formatPrice(discountedPrice || originalPrice)}`
-                : "Add to Cart"}
+              : `Add Product - ${formatPrice(originalPrice)}`}
         </Button>
       </CardFooter>
     </Card>
