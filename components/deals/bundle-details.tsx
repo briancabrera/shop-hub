@@ -29,7 +29,7 @@ interface BundleDetailsProps {
 export function BundleDetails({ bundle }: BundleDetailsProps) {
   const [isWishlisted, setIsWishlisted] = useState(false)
   const { toast } = useToast()
-  const { addToCartMutation } = useCart()
+  const { addToCartMutation = { isPending: false, mutate: () => {} } } = useCart()
 
   const isValid = isValidBundle(bundle)
   const savings = bundle.original_price - bundle.discounted_price
@@ -45,7 +45,7 @@ export function BundleDetails({ bundle }: BundleDetailsProps) {
     // Add all bundle items to cart
     bundle.items?.forEach((item) => {
       if (item.product && item.product.stock > 0) {
-        addToCartMutation.mutate({
+        addToCartMutation?.mutate({
           product_id: item.product.id,
           quantity: item.quantity,
         })
@@ -217,12 +217,14 @@ export function BundleDetails({ bundle }: BundleDetailsProps) {
           <div className="flex gap-3">
             <Button
               onClick={handleAddBundle}
-              disabled={!isValid || addToCartMutation.isPending}
+              disabled={!isValid || addToCartMutation?.isPending}
               className="flex-1"
               size="lg"
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              {addToCartMutation.isPending ? "Adding Bundle..." : `Add Bundle - $${bundle.discounted_price.toFixed(2)}`}
+              {addToCartMutation?.isPending
+                ? "Adding Bundle..."
+                : `Add Bundle - $${bundle.discounted_price.toFixed(2)}`}
             </Button>
 
             <Button
