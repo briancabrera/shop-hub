@@ -53,6 +53,13 @@ export function useAddToCart() {
     mutationFn: async (item: CartItemInput) => {
       console.log("useAddToCart: Adding item to cart:", item)
 
+      // Debug: Verify the item structure
+      console.log("🔍 useAddToCart Debug - Item structure:")
+      console.log("  - product_id:", item.product_id, "Type:", typeof item.product_id)
+      console.log("  - quantity:", item.quantity, "Type:", typeof item.quantity)
+      console.log("  - deal_id:", item.deal_id, "Type:", typeof item.deal_id)
+      console.log("  - bundle_id:", item.bundle_id, "Type:", typeof item.bundle_id)
+
       const {
         data: { session },
       } = await supabaseClient.auth.getSession()

@@ -153,12 +153,34 @@ export async function POST(request: NextRequest) {
       const validatedData = cartItemSchema.parse(body)
       console.log("Cart POST: Validated data:", JSON.stringify(validatedData))
 
-      // Normalize null values - convert undefined to null, filter out empty strings
-      const dealId = validatedData.deal_id === undefined || validatedData.deal_id === "" ? null : validatedData.deal_id
-      const bundleId =
-        validatedData.bundle_id === undefined || validatedData.bundle_id === "" ? null : validatedData.bundle_id
+      // Debug: Log the exact values being processed
+      console.log("🔍 Cart API Debug - Raw deal_id:", body.deal_id, "Type:", typeof body.deal_id)
+      console.log("🔍 Cart API Debug - Raw bundle_id:", body.bundle_id, "Type:", typeof body.bundle_id)
+      console.log(
+        "🔍 Cart API Debug - Validated deal_id:",
+        validatedData.deal_id,
+        "Type:",
+        typeof validatedData.deal_id,
+      )
+      console.log(
+        "🔍 Cart API Debug - Validated bundle_id:",
+        validatedData.bundle_id,
+        "Type:",
+        typeof validatedData.bundle_id,
+      )
 
-      console.log("Cart POST: Normalized IDs - dealId:", dealId, "bundleId:", bundleId)
+      // Normalize null values - convert undefined to null, filter out empty strings
+      const dealId =
+        validatedData.deal_id === undefined || validatedData.deal_id === "" || validatedData.deal_id === null
+          ? null
+          : validatedData.deal_id
+      const bundleId =
+        validatedData.bundle_id === undefined || validatedData.bundle_id === "" || validatedData.bundle_id === null
+          ? null
+          : validatedData.bundle_id
+
+      console.log("🔧 Cart API Debug - Normalized dealId:", dealId, "Type:", typeof dealId)
+      console.log("🔧 Cart API Debug - Normalized bundleId:", bundleId, "Type:", typeof bundleId)
 
       // Get product information
       console.log("Cart POST: Fetching product:", validatedData.product_id)
