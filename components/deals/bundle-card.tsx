@@ -1,43 +1,132 @@
 "use client"
 
-import type React from "react"
-import type { Bundle } from "@/types"
-import { formatCurrency } from "@/lib/utils"
-import { useCart } from "@/hooks/use-cart"
-import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import Link from "next/link"
+import { Clock, Package, Tag, Users } from "lucide-react"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type { Bundle } from "@/types/deals"
+import { formatTimeRemaining, getDiscountBadgeColor, isValidBundle } from "@/lib/deals/utils"
 
 interface BundleCardProps {
   bundle: Bundle
+  onAddToCart?: (bundleId: string) => void
 }
 
-const BundleCard: React.FC<BundleCardProps> = ({ bundle }) => {
-  const { addItem, isAddingItem } = useCart()
-
-  const handleAddToCart = () => {
-    addItem({
-      bundle_id: bundle.id,
-      quantity: 1,
-    })
-  }
+export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
+  const isValid = isValidBundle(bundle)
+  const timeRemaining = formatTimeRemaining(bundle.end_date)
+  const badgeColor = getDiscountBadgeColor(bundle.discount_type, bundle.discount_value)
+  const savings = (bundle.original_price || 0) - (bundle.discounted_price || 0)
 
   return (
-    <div className="border rounded-md p-4">
-      <Image
-        src={bundle.image_url || "/placeholder.svg?height=300&width=300"}
-        alt={bundle.name || "Bundle"}
-        width={300}
-        height={300}
-        className="object-cover rounded-md mb-4"
-      />
-      <h3 className="text-lg font-semibold">{bundle.name || bundle.title}</h3>
-      <p className="text-gray-600">{bundle.description}</p>
-      <p className="text-xl font-bold">{formatCurrency(bundle.price || 0)}</p>
-      <Button onClick={handleAddToCart} disabled={isAddingItem} className="mt-4">
-        {isAddingItem ? "Adding..." : "Add to Cart"}
-      </Button>
-    </div>
+    <Card
+      className={`group relative overflow-hidden transition-all duration-300 hover:shadow-lg ${!isValid ? "opacity-60" : ""}`}
+    >
+      {/* Discount Badge */}
+      <div className="absolute top-3 left-3 z-10">
+        <Badge className={`${badgeColor} text-white font-bold`}>
+          <Tag className="w-3 h-3 mr-1" />
+          {bundle.discount_type === "percentage" ? `${bundle.discount_value}% OFF` : `$${bundle.discount_value} OFF`}
+        </Badge>
+      </div>
+
+      {/* Bundle Indicator */}
+      <div className="absolute top-3 right-3 z-10">
+        <Badge variant="secondary">
+          <Package className="w-3 h-3 mr-1" />
+          BUNDLE
+        </Badge>
+      </div>
+
+      <CardHeader className="p-0">
+        <div className="relative aspect-[4/3] overflow-hidden">
+          <Image
+            src={bundle.image_url || "/placeholder.svg?height=240&width=320&query=bundle"}
+            alt={bundle.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          {!isValid && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <Badge variant="secondary" className="text-lg font-bold">
+                EXPIRED
+              </Badge>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-4">
+        <h3 className="font-bold text-xl mb-2 line-clamp-2">{bundle.title}</h3>
+
+        {bundle.description && <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{bundle.description}</p>}
+
+        {/* Bundle Items Preview */}
+        {bundle.items && bundle.items.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{bundle.items.length} items included</span>
+            </div>
+            <div className="flex -space-x-2">
+              {bundle.items.slice(0, 4).map((item, index) => (
+                <Avatar key={item.id} className="w-8 h-8 border-2 border-background">
+                  <AvatarImage src={item.product?.image_url || "/placeholder.svg"} alt={item.product?.name} />
+                  <AvatarFallback className="text-xs">{item.product?.name?.charAt(0) || "P"}</AvatarFallback>
+                </Avatar>
+              ))}
+              {bundle.items.length > 4 && (
+                <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+                  <span className="text-xs font-medium">+{bundle.items.length - 4}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Price Section */}
+        <div className="space-y-2 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold text-primary">${(bundle.discounted_price || 0).toFixed(2)}</span>
+            <span className="text-lg text-muted-foreground line-through">
+              ${(bundle.original_price || 0).toFixed(2)}
+            </span>
+          </div>
+          <div className="text-sm text-green-600 font-medium">Bundle saves ${savings.toFixed(2)}</div>
+        </div>
+
+        {/* Time Remaining */}
+        {isValid && (
+          <div className="flex items-center gap-1 text-sm text-orange-600 mb-3">
+            <Clock className="w-4 h-4" />
+            <span className="font-medium">{timeRemaining} left</span>
+          </div>
+        )}
+
+        {/* Usage Limit */}
+        {bundle.max_uses && (
+          <div className="text-xs text-muted-foreground mb-3">
+            {bundle.max_uses - bundle.current_uses} of {bundle.max_uses} remaining
+          </div>
+        )}
+      </CardContent>
+
+      <CardFooter className="p-4 pt-0 space-y-2">
+        <div className="flex gap-2 w-full">
+          <Button asChild variant="outline" className="flex-1" disabled={!isValid}>
+            <Link href={`/bundles/${bundle.id}`}>View Bundle</Link>
+          </Button>
+
+          {onAddToCart && (
+            <Button onClick={() => onAddToCart(bundle.id)} className="flex-1" disabled={!isValid}>
+              Add Bundle to Cart
+            </Button>
+          )}
+        </div>
+      </CardFooter>
+    </Card>
   )
 }
-
-export default BundleCard
