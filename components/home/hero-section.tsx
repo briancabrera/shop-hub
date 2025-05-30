@@ -43,7 +43,7 @@ export function HeroSection() {
             </div>
 
             {/* Features */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-6 text-sm justify-center lg:justify-start">
+            <div className="flex flex-wrap justify-center lg:justify-start gap-8 pt-6 text-sm">
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-orange-600" />
                 <span>Free Shipping</span>
