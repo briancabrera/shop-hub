@@ -82,11 +82,13 @@ export async function GET() {
     const bundleItems = []
 
     for (const item of cartItems || []) {
-      const processedItem = { ...item }
+      console.log(`🛒 Processing ${item.item_type} item:`, item.id)
 
       try {
         // Process based on item_type
         if (item.item_type === "product" && item.product_id) {
+          console.log("🛒 Fetching product data for:", item.product_id)
+
           // Get product details
           const { data: product, error: productError } = await supabase
             .from("products")
@@ -100,18 +102,28 @@ export async function GET() {
           }
 
           if (product) {
-            processedItem.product = product
-            processedItem.original_price = Number(product.price) || 0
-            processedItem.discounted_price = Number(product.price) || 0
-            processedItem.discount_amount = 0
+            const processedItem = {
+              ...item,
+              product: product,
+              display_name: product.name,
+              display_image: product.image_url,
+              original_price: Number(product.price) || 0,
+              discounted_price: Number(product.price) || 0,
+              discount_amount: 0,
+            }
 
             const itemTotal = (Number(product.price) || 0) * item.quantity
             originalTotal += itemTotal
             total += itemTotal
 
             productItems.push(processedItem)
+            processedItems.push(processedItem)
+
+            console.log("🛒 Product processed:", product.name, "Price:", product.price)
           }
         } else if (item.item_type === "deal" && item.deal_id) {
+          console.log("🛒 Fetching deal data for:", item.deal_id)
+
           // Get deal details with product
           const { data: deal, error: dealError } = await supabase
             .from("deals")
@@ -128,9 +140,6 @@ export async function GET() {
           }
 
           if (deal && deal.products) {
-            processedItem.deal = deal
-            processedItem.product = deal.products
-
             const originalPrice = Number(deal.products.price) || 0
             let discountedPrice = originalPrice
 
@@ -140,9 +149,18 @@ export async function GET() {
               discountedPrice = Math.max(0, originalPrice - (Number(deal.discount_value) || 0))
             }
 
-            processedItem.original_price = originalPrice
-            processedItem.discounted_price = discountedPrice
-            processedItem.discount_amount = originalPrice - discountedPrice
+            const processedItem = {
+              ...item,
+              deal: deal,
+              product: deal.products, // Product info for compatibility
+              display_name: deal.products.name,
+              display_image: deal.products.image_url,
+              deal_title: deal.title,
+              deal_description: deal.description,
+              original_price: originalPrice,
+              discounted_price: discountedPrice,
+              discount_amount: originalPrice - discountedPrice,
+            }
 
             const itemOriginalTotal = originalPrice * item.quantity
             const itemDiscountedTotal = discountedPrice * item.quantity
@@ -151,9 +169,14 @@ export async function GET() {
             total += itemDiscountedTotal
 
             dealItems.push(processedItem)
+            processedItems.push(processedItem)
+
+            console.log("🛒 Deal processed:", deal.title, "Original:", originalPrice, "Discounted:", discountedPrice)
           }
         } else if (item.item_type === "bundle" && item.bundle_id) {
-          // Get bundle details with products
+          console.log("🛒 Fetching bundle data for:", item.bundle_id)
+
+          // Get bundle details
           const { data: bundle, error: bundleError } = await supabase
             .from("bundles")
             .select("*")
@@ -166,7 +189,7 @@ export async function GET() {
           }
 
           if (bundle) {
-            // Get bundle items
+            // Get bundle items with products
             const { data: bundleItemsData, error: bundleItemsError } = await supabase
               .from("bundle_items")
               .select(`
@@ -180,14 +203,20 @@ export async function GET() {
               continue
             }
 
-            processedItem.bundle = bundle
-            processedItem.bundle_items = bundleItemsData || []
-
             let originalPrice = 0
+            const bundleProducts = []
+
             if (bundleItemsData) {
               for (const bundleItem of bundleItemsData) {
                 if (bundleItem.products) {
-                  originalPrice += (Number(bundleItem.products.price) || 0) * bundleItem.quantity
+                  const itemPrice = (Number(bundleItem.products.price) || 0) * bundleItem.quantity
+                  originalPrice += itemPrice
+
+                  bundleProducts.push({
+                    ...bundleItem.products,
+                    bundle_quantity: bundleItem.quantity,
+                    total_price: itemPrice,
+                  })
                 }
               }
             }
@@ -199,9 +228,18 @@ export async function GET() {
               discountedPrice = Math.max(0, originalPrice - (Number(bundle.discount_value) || 0))
             }
 
-            processedItem.original_price = originalPrice
-            processedItem.discounted_price = discountedPrice
-            processedItem.discount_amount = originalPrice - discountedPrice
+            const processedItem = {
+              ...item,
+              bundle: bundle,
+              bundle_products: bundleProducts,
+              display_name: bundle.title,
+              display_image: bundle.image_url || bundleProducts[0]?.image_url,
+              bundle_title: bundle.title,
+              bundle_description: bundle.description,
+              original_price: originalPrice,
+              discounted_price: discountedPrice,
+              discount_amount: originalPrice - discountedPrice,
+            }
 
             const itemOriginalTotal = originalPrice * item.quantity
             const itemDiscountedTotal = discountedPrice * item.quantity
@@ -210,10 +248,20 @@ export async function GET() {
             total += itemDiscountedTotal
 
             bundleItems.push(processedItem)
+            processedItems.push(processedItem)
+
+            console.log(
+              "🛒 Bundle processed:",
+              bundle.title,
+              "Products:",
+              bundleProducts.length,
+              "Original:",
+              originalPrice,
+              "Discounted:",
+              discountedPrice,
+            )
           }
         }
-
-        processedItems.push(processedItem)
       } catch (error) {
         console.error("Error processing cart item:", error)
         // Continue processing other items
@@ -221,6 +269,15 @@ export async function GET() {
     }
 
     const totalSavings = originalTotal - total
+
+    console.log("🛒 Cart totals:", {
+      total: Math.round(total * 100) / 100,
+      originalTotal: Math.round(originalTotal * 100) / 100,
+      totalSavings: Math.round(totalSavings * 100) / 100,
+      productItems: productItems.length,
+      dealItems: dealItems.length,
+      bundleItems: bundleItems.length,
+    })
 
     return NextResponse.json({
       items: processedItems,
