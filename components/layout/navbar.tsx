@@ -27,30 +27,30 @@ export function Navbar() {
   }
 
   return (
-    <nav className="border-b bg-white sticky top-0 z-50" role="navigation" aria-label="Main navigation">
+    <nav className="border-b bg-white sticky top-0 z-50 shadow-sm" role="navigation" aria-label="Main navigation">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2" aria-label="ShopHub home">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+          <Link href="/" className="flex items-center space-x-2" aria-label="Shoppero home">
+            <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-pink-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg" aria-hidden="true">
                 S
               </span>
             </div>
-            <span className="text-xl font-bold text-gray-900">ShopHub</span>
+            <span className="text-xl font-bold text-gray-900">Shoppero</span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8" aria-label="Primary navigation">
             <Link
               href="/products"
-              className="text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md px-2 py-1"
+              className="text-gray-700 hover:text-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-md px-2 py-1"
             >
               Products
             </Link>
             <Link
               href="/deals"
-              className="text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md px-2 py-1 relative"
+              className="text-gray-700 hover:text-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-md px-2 py-1 relative"
             >
               🔥 Deals
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-2 h-2 animate-pulse"></span>
@@ -70,7 +70,7 @@ export function Navbar() {
                 <ShoppingCart className="w-5 h-5" aria-hidden="true" />
                 {!cartLoading && itemCount > 0 && (
                   <Badge
-                    className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center p-0 text-xs"
+                    className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center p-0 text-xs bg-orange-500"
                     aria-label={`${itemCount} items in cart`}
                   >
                     {itemCount}
@@ -148,14 +148,14 @@ export function Navbar() {
 
               <Link
                 href="/products"
-                className="text-gray-700 hover:text-blue-600 transition-colors px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+                className="text-gray-700 hover:text-orange-600 transition-colors px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-md"
                 onClick={closeMobileMenu}
               >
                 Products
               </Link>
               <Link
                 href="/deals"
-                className="text-gray-700 hover:text-blue-600 transition-colors px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md relative"
+                className="text-gray-700 hover:text-orange-600 transition-colors px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-md relative"
                 onClick={closeMobileMenu}
               >
                 🔥 Deals

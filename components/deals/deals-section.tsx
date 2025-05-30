@@ -1,22 +1,23 @@
 "use client"
 
 import { useState } from "react"
-import { Flame, Package, ChevronLeft, ChevronRight } from "lucide-react"
+import Link from "next/link"
+import { Flame, Package, ArrowRight } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DealCard } from "./deal-card"
 import { BundleCard } from "./bundle-card"
 import { useActiveDeals } from "@/hooks/use-deals"
 import { useActiveBundles } from "@/hooks/use-bundles"
 import { useAddToCart } from "@/hooks/use-cart"
-import Link from "next/link"
+import type { DealFilters, BundleFilters } from "@/types/deals"
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 
 export function DealsSection() {
-  const [currentDealIndex, setCurrentDealIndex] = useState(0)
-  const [currentBundleIndex, setCurrentBundleIndex] = useState(0)
+  const [dealFilters, setDealFilters] = useState<DealFilters>({ active_only: true })
+  const [bundleFilters, setBundleFilters] = useState<BundleFilters>({ active_only: true })
+  const [sortBy, setSortBy] = useState<string>("discount")
 
   const { data: deals, isLoading: dealsLoading, error: dealsError } = useActiveDeals()
   const { data: bundles, isLoading: bundlesLoading, error: bundlesError } = useActiveBundles()
@@ -40,61 +41,68 @@ export function DealsSection() {
     })
   }
 
-  // Show only first 6 deals and bundles
-  const displayDeals = deals?.slice(0, 6) || []
-  const displayBundles = bundles?.slice(0, 6) || []
+  const sortedDeals = deals
+    ?.sort((a, b) => {
+      switch (sortBy) {
+        case "discount":
+          return b.discount_value - a.discount_value
+        case "price":
+          return (a.product?.price || 0) - (b.product?.price || 0)
+        case "ending":
+          return new Date(a.end_date).getTime() - new Date(b.end_date).getTime()
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      }
+    })
+    .slice(0, 6) // Limit to 6 deals
 
-  const itemsPerPage = 3
-  const maxDealIndex = Math.max(0, displayDeals.length - itemsPerPage)
-  const maxBundleIndex = Math.max(0, displayBundles.length - itemsPerPage)
-
-  const nextDeals = () => {
-    setCurrentDealIndex((prev) => Math.min(prev + itemsPerPage, maxDealIndex))
-  }
-
-  const prevDeals = () => {
-    setCurrentDealIndex((prev) => Math.max(prev - itemsPerPage, 0))
-  }
-
-  const nextBundles = () => {
-    setCurrentBundleIndex((prev) => Math.min(prev + itemsPerPage, maxBundleIndex))
-  }
-
-  const prevBundles = () => {
-    setCurrentBundleIndex((prev) => Math.max(prev - itemsPerPage, 0))
-  }
+  const sortedBundles = bundles
+    ?.sort((a, b) => {
+      switch (sortBy) {
+        case "discount":
+          return b.discount_value - a.discount_value
+        case "price":
+          return (a.original_price || 0) - (b.original_price || 0)
+        case "ending":
+          return new Date(a.end_date).getTime() - new Date(b.end_date).getTime()
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      }
+    })
+    .slice(0, 4) // Limit to 4 bundles
 
   return (
-    <section className="py-16 bg-gradient-to-br from-orange-50 via-red-50 to-pink-50">
+    <section className="py-16 bg-gradient-to-br from-orange-50 to-pink-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 bg-gradient-to-r from-red-500 to-pink-500 rounded-full">
-              <Flame className="w-8 h-8 text-white" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-10">
+          <div className="mb-6 md:mb-0">
+            <div className="flex items-center gap-2 mb-2">
+              <Flame className="w-6 h-6 text-orange-500" />
+              <h2 className="text-3xl font-bold text-gray-900">Hot Deals & Bundles</h2>
             </div>
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
-              Hot Deals & Bundles
-            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl">
+              Limited time offers and exclusive bundles. Save big on your favorite products!
+            </p>
           </div>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Limited time offers and exclusive bundles. Don't miss out on these amazing savings!
-          </p>
-          <Badge variant="secondary" className="mt-4 text-red-600 bg-red-100">
-            <Flame className="w-4 h-4 mr-2" />
-            {displayDeals.length + displayBundles.length} active offers
-          </Badge>
+          <Link
+            href="/deals"
+            className="flex items-center gap-1 text-orange-600 font-medium hover:text-orange-700 transition-colors"
+          >
+            View all deals
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="deals" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-12 h-12">
-            <TabsTrigger value="deals" className="flex items-center gap-2 text-base">
-              <Flame className="w-5 h-5" />
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+            <TabsTrigger value="deals" className="flex items-center gap-2">
+              <Flame className="w-4 h-4" />
               Flash Deals
             </TabsTrigger>
-            <TabsTrigger value="bundles" className="flex items-center gap-2 text-base">
-              <Package className="w-5 h-5" />
+            <TabsTrigger value="bundles" className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
               Bundles
             </TabsTrigger>
           </TabsList>
@@ -102,7 +110,7 @@ export function DealsSection() {
           {/* Deals Tab */}
           <TabsContent value="deals">
             {dealsLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[...Array(3)].map((_, i) => (
                   <Card key={i} className="overflow-hidden">
                     <Skeleton className="aspect-square w-full" />
@@ -120,7 +128,7 @@ export function DealsSection() {
                   <p className="text-red-600">Failed to load deals. Please try again.</p>
                 </CardContent>
               </Card>
-            ) : !displayDeals.length ? (
+            ) : !sortedDeals?.length ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <Flame className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -129,58 +137,35 @@ export function DealsSection() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="relative">
-                {/* Carousel Controls */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={prevDeals}
-                      disabled={currentDealIndex === 0}
-                      className="p-2"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={nextDeals}
-                      disabled={currentDealIndex >= maxDealIndex}
-                      className="p-2"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <Link href="/deals">
-                    <Button variant="ghost" className="text-red-600 hover:text-red-700">
-                      View All Deals →
-                    </Button>
-                  </Link>
-                </div>
-
-                {/* Deals Carousel */}
-                <div className="overflow-hidden">
-                  <div
-                    className="flex transition-transform duration-300 ease-in-out gap-6"
-                    style={{ transform: `translateX(-${currentDealIndex * (100 / itemsPerPage)}%)` }}
-                  >
-                    {displayDeals.map((deal) => (
-                      <div key={deal.id} className="flex-none w-full md:w-1/2 lg:w-1/3">
+              <Carousel
+                opts={{
+                  align: "start",
+                  loop: true,
+                }}
+                className="w-full"
+              >
+                <CarouselContent>
+                  {sortedDeals.map((deal) => (
+                    <CarouselItem key={deal.id} className="md:basis-1/2 lg:basis-1/3">
+                      <div className="p-1">
                         <DealCard deal={deal} onAddToCart={handleAddToCart} />
                       </div>
-                    ))}
-                  </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <div className="flex justify-center mt-6">
+                  <CarouselPrevious className="relative static mr-2 translate-y-0" />
+                  <CarouselNext className="relative static ml-2 translate-y-0" />
                 </div>
-              </div>
+              </Carousel>
             )}
           </TabsContent>
 
           {/* Bundles Tab */}
           <TabsContent value="bundles">
             {bundlesLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(3)].map((_, i) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[...Array(2)].map((_, i) => (
                   <Card key={i} className="overflow-hidden">
                     <Skeleton className="aspect-[4/3] w-full" />
                     <CardContent className="p-4">
@@ -197,7 +182,7 @@ export function DealsSection() {
                   <p className="text-red-600">Failed to load bundles. Please try again.</p>
                 </CardContent>
               </Card>
-            ) : !displayBundles.length ? (
+            ) : !sortedBundles?.length ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -206,50 +191,27 @@ export function DealsSection() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="relative">
-                {/* Carousel Controls */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={prevBundles}
-                      disabled={currentBundleIndex === 0}
-                      className="p-2"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={nextBundles}
-                      disabled={currentBundleIndex >= maxBundleIndex}
-                      className="p-2"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <Link href="/deals">
-                    <Button variant="ghost" className="text-purple-600 hover:text-purple-700">
-                      View All Bundles →
-                    </Button>
-                  </Link>
-                </div>
-
-                {/* Bundles Carousel */}
-                <div className="overflow-hidden">
-                  <div
-                    className="flex transition-transform duration-300 ease-in-out gap-6"
-                    style={{ transform: `translateX(-${currentBundleIndex * (100 / itemsPerPage)}%)` }}
-                  >
-                    {displayBundles.map((bundle) => (
-                      <div key={bundle.id} className="flex-none w-full md:w-1/2 lg:w-1/3">
+              <Carousel
+                opts={{
+                  align: "start",
+                  loop: true,
+                }}
+                className="w-full"
+              >
+                <CarouselContent>
+                  {sortedBundles.map((bundle) => (
+                    <CarouselItem key={bundle.id} className="md:basis-1/2">
+                      <div className="p-1">
                         <BundleCard bundle={bundle} onAddToCart={handleAddBundleToCart} />
                       </div>
-                    ))}
-                  </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <div className="flex justify-center mt-6">
+                  <CarouselPrevious className="relative static mr-2 translate-y-0" />
+                  <CarouselNext className="relative static ml-2 translate-y-0" />
                 </div>
-              </div>
+              </Carousel>
             )}
           </TabsContent>
         </Tabs>
