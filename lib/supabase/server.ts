@@ -1,10 +1,11 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import type { Database } from "@/types/database"
 
 export async function supabaseServer() {
   const cookieStore = await cookies()
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -27,10 +28,16 @@ export async function supabaseServer() {
 
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser()
+
+  if (error) {
+    console.error("Error getting user:", error)
+  }
 
   return {
     supabase,
+    user,
     userId: user?.id || null,
   }
 }

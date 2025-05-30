@@ -11,22 +11,6 @@ export function useCart() {
     queryKey: ["cart"],
     queryFn: async () => {
       try {
-        const {
-          data: { session },
-        } = await supabaseClient.auth.getSession()
-
-        if (!session?.user) {
-          return {
-            items: [],
-            total: 0,
-            original_total: 0,
-            total_savings: 0,
-            product_items: [],
-            deal_items: [],
-            bundle_items: [],
-          }
-        }
-
         return await apiClient.cart.get()
       } catch (error) {
         console.error("Error fetching cart:", error)
@@ -51,15 +35,25 @@ export function useAddToCart() {
 
   return useMutation({
     mutationFn: async (item: CartItemInput) => {
-      console.log("useAddToCart: Adding item to cart:", item)
+      console.log("useAddToCart: Adding item to cart:", JSON.stringify(item, null, 2))
 
+      // Check if user is authenticated
       const {
         data: { session },
+        error: sessionError,
       } = await supabaseClient.auth.getSession()
 
+      if (sessionError) {
+        console.error("Session error:", sessionError)
+        throw new Error("Authentication error")
+      }
+
       if (!session?.user) {
+        console.log("No authenticated user found")
         throw new Error("Please sign in to add items to your cart")
       }
+
+      console.log("User authenticated:", session.user.id)
 
       try {
         const result = await apiClient.cart.add(item)

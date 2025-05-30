@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseServer } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { z } from "zod"
 
 const cartItemSchema = z.object({
@@ -12,9 +13,13 @@ const cartItemSchema = z.object({
 
 export async function GET() {
   try {
-    const { supabase, userId } = await supabaseServer()
+    const { user, userId } = await supabaseServer()
+
+    console.log("🛒 Cart GET - User:", user ? "authenticated" : "not authenticated")
+    console.log("🛒 Cart GET - User ID:", userId)
 
     if (!userId) {
+      console.log("🛒 Cart GET - Returning empty cart for unauthenticated user")
       return NextResponse.json(
         {
           items: [],
@@ -29,8 +34,8 @@ export async function GET() {
       )
     }
 
-    // Get cart items
-    const { data: cartItems, error: cartError } = await supabase
+    // Use admin client for database operations
+    const { data: cartItems, error: cartError } = await supabaseAdmin
       .from("cart_items")
       .select("*")
       .eq("user_id", userId)
@@ -56,7 +61,7 @@ export async function GET() {
         // Process based on item_type
         if (item.item_type === "product" && item.product_id) {
           // Get product details
-          const { data: product, error: productError } = await supabase
+          const { data: product, error: productError } = await supabaseAdmin
             .from("products")
             .select("*")
             .eq("id", item.product_id)
@@ -81,7 +86,7 @@ export async function GET() {
           }
         } else if (item.item_type === "deal" && item.deal_id) {
           // Get deal details with product
-          const { data: deal, error: dealError } = await supabase
+          const { data: deal, error: dealError } = await supabaseAdmin
             .from("deals")
             .select(`
               *,
@@ -122,7 +127,7 @@ export async function GET() {
           }
         } else if (item.item_type === "bundle" && item.bundle_id) {
           // Get bundle details with products
-          const { data: bundle, error: bundleError } = await supabase
+          const { data: bundle, error: bundleError } = await supabaseAdmin
             .from("bundles")
             .select("*")
             .eq("id", item.bundle_id)
@@ -135,7 +140,7 @@ export async function GET() {
 
           if (bundle) {
             // Get bundle items
-            const { data: bundleItemsData, error: bundleItemsError } = await supabase
+            const { data: bundleItemsData, error: bundleItemsError } = await supabaseAdmin
               .from("bundle_items")
               .select(`
                 *,
@@ -209,14 +214,15 @@ export async function POST(request: NextRequest) {
   try {
     console.log("🛒 Cart API POST - Starting request")
 
-    const { supabase, userId } = await supabaseServer()
+    const { user, userId } = await supabaseServer()
+
+    console.log("🛒 Cart API POST - User:", user ? "authenticated" : "not authenticated")
+    console.log("🛒 Cart API POST - User ID:", userId)
 
     if (!userId) {
-      console.log("🛒 Cart API POST - No user ID")
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      console.log("🛒 Cart API POST - No user ID, returning unauthorized")
+      return NextResponse.json({ error: "Please sign in to add items to your cart" }, { status: 401 })
     }
-
-    console.log("🛒 Cart API POST - User ID:", userId)
 
     const body = await request.json()
     console.log("🛒 Cart API POST - Request body:", JSON.stringify(body, null, 2))
@@ -250,8 +256,8 @@ export async function POST(request: NextRequest) {
     if (item_type === "product" && product_id) {
       console.log("🛒 Cart API POST - Processing product:", product_id)
 
-      // Get product details
-      const { data: product, error: productError } = await supabase
+      // Get product details using admin client
+      const { data: product, error: productError } = await supabaseAdmin
         .from("products")
         .select("*")
         .eq("id", product_id)
@@ -283,8 +289,8 @@ export async function POST(request: NextRequest) {
     } else if (item_type === "deal" && deal_id) {
       console.log("🛒 Cart API POST - Processing deal:", deal_id)
 
-      // Get deal details with product
-      const { data: deal, error: dealError } = await supabase
+      // Get deal details with product using admin client
+      const { data: deal, error: dealError } = await supabaseAdmin
         .from("deals")
         .select(`
           *,
@@ -341,8 +347,8 @@ export async function POST(request: NextRequest) {
 
       console.log("🛒 Cart API POST - Deal pricing:", { originalPrice, discountedPrice, discountAmount })
 
-      // Update deal uses
-      const { error: updateError } = await supabase
+      // Update deal uses using admin client
+      const { error: updateError } = await supabaseAdmin
         .from("deals")
         .update({ current_uses: (deal.current_uses || 0) + 1 })
         .eq("id", deal_id)
@@ -353,8 +359,8 @@ export async function POST(request: NextRequest) {
     } else if (item_type === "bundle" && bundle_id) {
       console.log("🛒 Cart API POST - Processing bundle:", bundle_id)
 
-      // Get bundle details
-      const { data: bundle, error: bundleError } = await supabase
+      // Get bundle details using admin client
+      const { data: bundle, error: bundleError } = await supabaseAdmin
         .from("bundles")
         .select("*")
         .eq("id", bundle_id)
@@ -388,8 +394,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Bundle maximum uses reached" }, { status: 400 })
       }
 
-      // Get bundle items
-      const { data: bundleItemsData, error: bundleItemsError } = await supabase
+      // Get bundle items using admin client
+      const { data: bundleItemsData, error: bundleItemsError } = await supabaseAdmin
         .from("bundle_items")
         .select(`
           *,
@@ -431,8 +437,8 @@ export async function POST(request: NextRequest) {
 
       console.log("🛒 Cart API POST - Bundle pricing:", { originalPrice, discountedPrice, discountAmount })
 
-      // Update bundle uses
-      const { error: updateError } = await supabase
+      // Update bundle uses using admin client
+      const { error: updateError } = await supabaseAdmin
         .from("bundles")
         .update({ current_uses: (bundle.current_uses || 0) + 1 })
         .eq("id", bundle_id)
@@ -442,10 +448,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if item already exists in cart
+    // Check if item already exists in cart using admin client
     console.log("🛒 Cart API POST - Checking for existing item")
 
-    const { data: existingItem, error: existingError } = await supabase
+    const { data: existingItem, error: existingError } = await supabaseAdmin
       .from("cart_items")
       .select("*")
       .eq("user_id", userId)
@@ -463,8 +469,8 @@ export async function POST(request: NextRequest) {
     if (existingItem) {
       console.log("🛒 Cart API POST - Updating existing item")
 
-      // Update quantity
-      const { data: updatedItem, error: updateError } = await supabase
+      // Update quantity using admin client
+      const { data: updatedItem, error: updateError } = await supabaseAdmin
         .from("cart_items")
         .update({
           quantity: existingItem.quantity + quantity,
@@ -484,7 +490,7 @@ export async function POST(request: NextRequest) {
     } else {
       console.log("🛒 Cart API POST - Creating new item")
 
-      // Insert new item
+      // Insert new item using admin client
       const insertData = {
         user_id: userId,
         item_type,
@@ -499,7 +505,7 @@ export async function POST(request: NextRequest) {
 
       console.log("🛒 Cart API POST - Insert data:", JSON.stringify(insertData, null, 2))
 
-      const { data: newItem, error: insertError } = await supabase
+      const { data: newItem, error: insertError } = await supabaseAdmin
         .from("cart_items")
         .insert(insertData)
         .select()
@@ -521,7 +527,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { supabase, userId } = await supabaseServer()
+    const { user, userId } = await supabaseServer()
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -534,8 +540,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Item ID is required" }, { status: 400 })
     }
 
-    // Delete item
-    const { error } = await supabase.from("cart_items").delete().eq("id", id).eq("user_id", userId)
+    // Delete item using admin client
+    const { error } = await supabaseAdmin.from("cart_items").delete().eq("id", id).eq("user_id", userId)
 
     if (error) {
       console.error("Error deleting cart item:", error)
