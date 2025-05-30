@@ -264,13 +264,24 @@ export async function POST(request: NextRequest) {
 
     const { item_type, product_id, deal_id, bundle_id, quantity } = result.data
 
-    console.log("🛒 Cart API POST - Validated data:", { item_type, product_id, deal_id, bundle_id, quantity })
+    // Normalize undefined/null values to actual null
+    const normalizedProductId = product_id || null
+    const normalizedDealId = deal_id || null
+    const normalizedBundleId = bundle_id || null
+
+    console.log("🛒 Cart API POST - Normalized data:", {
+      item_type,
+      product_id: normalizedProductId,
+      deal_id: normalizedDealId,
+      bundle_id: normalizedBundleId,
+      quantity,
+    })
 
     // Validate that the appropriate ID is provided based on item_type
     if (
-      (item_type === "product" && !product_id) ||
-      (item_type === "deal" && !deal_id) ||
-      (item_type === "bundle" && !bundle_id)
+      (item_type === "product" && !normalizedProductId) ||
+      (item_type === "deal" && !normalizedDealId) ||
+      (item_type === "bundle" && !normalizedBundleId)
     ) {
       console.error("🛒 Cart API POST - Missing ID for item type:", item_type)
       return NextResponse.json({ error: `Missing ${item_type}_id for item_type: ${item_type}` }, { status: 400 })
@@ -281,14 +292,14 @@ export async function POST(request: NextRequest) {
     let discountedPrice = 0
     let discountAmount = 0
 
-    if (item_type === "product" && product_id) {
-      console.log("🛒 Cart API POST - Processing product:", product_id)
+    if (item_type === "product" && normalizedProductId) {
+      console.log("🛒 Cart API POST - Processing product:", normalizedProductId)
 
       // Get product details
       const { data: product, error: productError } = await supabase
         .from("products")
         .select("*")
-        .eq("id", product_id)
+        .eq("id", normalizedProductId)
         .single()
 
       if (productError) {
@@ -314,8 +325,8 @@ export async function POST(request: NextRequest) {
       discountAmount = 0
 
       console.log("🛒 Cart API POST - Product pricing:", { originalPrice, discountedPrice, discountAmount })
-    } else if (item_type === "deal" && deal_id) {
-      console.log("🛒 Cart API POST - Processing deal:", deal_id)
+    } else if (item_type === "deal" && normalizedDealId) {
+      console.log("🛒 Cart API POST - Processing deal:", normalizedDealId)
 
       // Get deal details with product
       const { data: deal, error: dealError } = await supabase
@@ -324,7 +335,7 @@ export async function POST(request: NextRequest) {
           *,
           products (*)
         `)
-        .eq("id", deal_id)
+        .eq("id", normalizedDealId)
         .single()
 
       if (dealError) {
@@ -379,19 +390,19 @@ export async function POST(request: NextRequest) {
       const { error: updateError } = await supabase
         .from("deals")
         .update({ current_uses: (deal.current_uses || 0) + 1 })
-        .eq("id", deal_id)
+        .eq("id", normalizedDealId)
 
       if (updateError) {
         console.error("🛒 Cart API POST - Error updating deal uses:", updateError)
       }
-    } else if (item_type === "bundle" && bundle_id) {
-      console.log("🛒 Cart API POST - Processing bundle:", bundle_id)
+    } else if (item_type === "bundle" && normalizedBundleId) {
+      console.log("🛒 Cart API POST - Processing bundle:", normalizedBundleId)
 
       // Get bundle details
       const { data: bundle, error: bundleError } = await supabase
         .from("bundles")
         .select("*")
-        .eq("id", bundle_id)
+        .eq("id", normalizedBundleId)
         .single()
 
       if (bundleError) {
@@ -429,7 +440,7 @@ export async function POST(request: NextRequest) {
           *,
           products (*)
         `)
-        .eq("bundle_id", bundle_id)
+        .eq("bundle_id", normalizedBundleId)
 
       if (bundleItemsError) {
         console.error("🛒 Cart API POST - Error fetching bundle items:", bundleItemsError)
@@ -469,7 +480,7 @@ export async function POST(request: NextRequest) {
       const { error: updateError } = await supabase
         .from("bundles")
         .update({ current_uses: (bundle.current_uses || 0) + 1 })
-        .eq("id", bundle_id)
+        .eq("id", normalizedBundleId)
 
       if (updateError) {
         console.error("🛒 Cart API POST - Error updating bundle uses:", updateError)
@@ -479,15 +490,29 @@ export async function POST(request: NextRequest) {
     // Check if item already exists in cart
     console.log("🛒 Cart API POST - Checking for existing item")
 
-    const { data: existingItem, error: existingError } = await supabase
-      .from("cart_items")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("item_type", item_type)
-      .eq("product_id", product_id || null)
-      .eq("deal_id", deal_id || null)
-      .eq("bundle_id", bundle_id || null)
-      .maybeSingle()
+    // Build the query step by step to handle null values properly
+    let existingItemQuery = supabase.from("cart_items").select("*").eq("user_id", user.id).eq("item_type", item_type)
+
+    // Handle null values properly for PostgreSQL
+    if (normalizedProductId) {
+      existingItemQuery = existingItemQuery.eq("product_id", normalizedProductId)
+    } else {
+      existingItemQuery = existingItemQuery.is("product_id", null)
+    }
+
+    if (normalizedDealId) {
+      existingItemQuery = existingItemQuery.eq("deal_id", normalizedDealId)
+    } else {
+      existingItemQuery = existingItemQuery.is("deal_id", null)
+    }
+
+    if (normalizedBundleId) {
+      existingItemQuery = existingItemQuery.eq("bundle_id", normalizedBundleId)
+    } else {
+      existingItemQuery = existingItemQuery.is("bundle_id", null)
+    }
+
+    const { data: existingItem, error: existingError } = await existingItemQuery.maybeSingle()
 
     if (existingError) {
       console.error("🛒 Cart API POST - Error checking existing item:", existingError)
@@ -522,9 +547,9 @@ export async function POST(request: NextRequest) {
       const insertData = {
         user_id: user.id,
         item_type,
-        product_id: product_id || null,
-        deal_id: deal_id || null,
-        bundle_id: bundle_id || null,
+        product_id: normalizedProductId,
+        deal_id: normalizedDealId,
+        bundle_id: normalizedBundleId,
         quantity,
         original_price: originalPrice,
         discounted_price: discountedPrice,
