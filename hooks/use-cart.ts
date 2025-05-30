@@ -5,12 +5,29 @@ import { apiClient } from "@/lib/api/client"
 import { useToast } from "@/hooks/use-toast"
 import { supabaseClient } from "@/lib/supabase/client"
 import type { CartItemInput } from "@/types"
+import { useRouter } from "next/navigation"
 
 export function useCart() {
   return useQuery({
     queryKey: ["cart"],
     queryFn: async () => {
       try {
+        const {
+          data: { session },
+        } = await supabaseClient.auth.getSession()
+
+        if (!session?.user) {
+          return {
+            items: [],
+            total: 0,
+            original_total: 0,
+            total_savings: 0,
+            product_items: [],
+            deal_items: [],
+            bundle_items: [],
+          }
+        }
+
         return await apiClient.cart.get()
       } catch (error) {
         console.error("Error fetching cart:", error)
@@ -32,28 +49,19 @@ export function useCart() {
 export function useAddToCart() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const router = useRouter()
 
   return useMutation({
     mutationFn: async (item: CartItemInput) => {
-      console.log("useAddToCart: Adding item to cart:", JSON.stringify(item, null, 2))
+      console.log("useAddToCart: Adding item to cart:", item)
 
-      // Check if user is authenticated
       const {
         data: { session },
-        error: sessionError,
       } = await supabaseClient.auth.getSession()
 
-      if (sessionError) {
-        console.error("Session error:", sessionError)
-        throw new Error("Authentication error")
-      }
-
       if (!session?.user) {
-        console.log("No authenticated user found")
-        throw new Error("Please sign in to add items to your cart")
+        throw new Error("AUTHENTICATION_REQUIRED")
       }
-
-      console.log("User authenticated:", session.user.id)
 
       try {
         const result = await apiClient.cart.add(item)
@@ -81,11 +89,25 @@ export function useAddToCart() {
     },
     onError: (error: Error) => {
       console.error("useAddToCart onError:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add item to cart",
-        variant: "destructive",
-      })
+
+      if (error.message === "AUTHENTICATION_REQUIRED" || error.message.includes("sign in")) {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in to add items to your cart",
+          variant: "destructive",
+          action: (
+            <button onClick={() => router.push("/login")} className="bg-white text-black px-3 py-1 rounded text-sm">
+              Sign In
+            </button>
+          ),
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to add item to cart",
+          variant: "destructive",
+        })
+      }
     },
   })
 }

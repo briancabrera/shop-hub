@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseServer } from "@/lib/supabase/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { z } from "zod"
 
 const cartItemSchema = z.object({
@@ -11,15 +11,37 @@ const cartItemSchema = z.object({
   quantity: z.number().int().positive(),
 })
 
+async function getAuthenticatedUser() {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
+
+    if (error) {
+      console.error("Auth error:", error)
+      return null
+    }
+
+    return session?.user || null
+  } catch (error) {
+    console.error("Error getting authenticated user:", error)
+    return null
+  }
+}
+
 export async function GET() {
   try {
-    const { user, userId } = await supabaseServer()
+    console.log("🛒 Cart API GET - Starting request")
 
-    console.log("🛒 Cart GET - User:", user ? "authenticated" : "not authenticated")
-    console.log("🛒 Cart GET - User ID:", userId)
+    const user = await getAuthenticatedUser()
+    console.log("🛒 Cart API GET - User:", user?.id || "No user")
 
-    if (!userId) {
-      console.log("🛒 Cart GET - Returning empty cart for unauthenticated user")
+    if (!user) {
+      console.log("🛒 Cart API GET - No authenticated user, returning empty cart")
       return NextResponse.json(
         {
           items: [],
@@ -34,17 +56,22 @@ export async function GET() {
       )
     }
 
-    // Use admin client for database operations
-    const { data: cartItems, error: cartError } = await supabaseAdmin
+    const cookieStore = await cookies()
+    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+
+    // Get cart items
+    const { data: cartItems, error: cartError } = await supabase
       .from("cart_items")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
 
     if (cartError) {
       console.error("Error fetching cart items:", cartError)
       return NextResponse.json({ error: "Failed to fetch cart items" }, { status: 500 })
     }
+
+    console.log("🛒 Cart API GET - Found cart items:", cartItems?.length || 0)
 
     // Process cart items based on item_type
     const processedItems = []
@@ -61,7 +88,7 @@ export async function GET() {
         // Process based on item_type
         if (item.item_type === "product" && item.product_id) {
           // Get product details
-          const { data: product, error: productError } = await supabaseAdmin
+          const { data: product, error: productError } = await supabase
             .from("products")
             .select("*")
             .eq("id", item.product_id)
@@ -86,7 +113,7 @@ export async function GET() {
           }
         } else if (item.item_type === "deal" && item.deal_id) {
           // Get deal details with product
-          const { data: deal, error: dealError } = await supabaseAdmin
+          const { data: deal, error: dealError } = await supabase
             .from("deals")
             .select(`
               *,
@@ -127,7 +154,7 @@ export async function GET() {
           }
         } else if (item.item_type === "bundle" && item.bundle_id) {
           // Get bundle details with products
-          const { data: bundle, error: bundleError } = await supabaseAdmin
+          const { data: bundle, error: bundleError } = await supabase
             .from("bundles")
             .select("*")
             .eq("id", item.bundle_id)
@@ -140,7 +167,7 @@ export async function GET() {
 
           if (bundle) {
             // Get bundle items
-            const { data: bundleItemsData, error: bundleItemsError } = await supabaseAdmin
+            const { data: bundleItemsData, error: bundleItemsError } = await supabase
               .from("bundle_items")
               .select(`
                 *,
@@ -214,15 +241,16 @@ export async function POST(request: NextRequest) {
   try {
     console.log("🛒 Cart API POST - Starting request")
 
-    const { user, userId } = await supabaseServer()
+    const user = await getAuthenticatedUser()
+    console.log("🛒 Cart API POST - User:", user?.id || "No user")
 
-    console.log("🛒 Cart API POST - User:", user ? "authenticated" : "not authenticated")
-    console.log("🛒 Cart API POST - User ID:", userId)
-
-    if (!userId) {
-      console.log("🛒 Cart API POST - No user ID, returning unauthorized")
+    if (!user) {
+      console.log("🛒 Cart API POST - No authenticated user")
       return NextResponse.json({ error: "Please sign in to add items to your cart" }, { status: 401 })
     }
+
+    const cookieStore = await cookies()
+    const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
     const body = await request.json()
     console.log("🛒 Cart API POST - Request body:", JSON.stringify(body, null, 2))
@@ -256,8 +284,8 @@ export async function POST(request: NextRequest) {
     if (item_type === "product" && product_id) {
       console.log("🛒 Cart API POST - Processing product:", product_id)
 
-      // Get product details using admin client
-      const { data: product, error: productError } = await supabaseAdmin
+      // Get product details
+      const { data: product, error: productError } = await supabase
         .from("products")
         .select("*")
         .eq("id", product_id)
@@ -289,8 +317,8 @@ export async function POST(request: NextRequest) {
     } else if (item_type === "deal" && deal_id) {
       console.log("🛒 Cart API POST - Processing deal:", deal_id)
 
-      // Get deal details with product using admin client
-      const { data: deal, error: dealError } = await supabaseAdmin
+      // Get deal details with product
+      const { data: deal, error: dealError } = await supabase
         .from("deals")
         .select(`
           *,
@@ -347,8 +375,8 @@ export async function POST(request: NextRequest) {
 
       console.log("🛒 Cart API POST - Deal pricing:", { originalPrice, discountedPrice, discountAmount })
 
-      // Update deal uses using admin client
-      const { error: updateError } = await supabaseAdmin
+      // Update deal uses
+      const { error: updateError } = await supabase
         .from("deals")
         .update({ current_uses: (deal.current_uses || 0) + 1 })
         .eq("id", deal_id)
@@ -359,8 +387,8 @@ export async function POST(request: NextRequest) {
     } else if (item_type === "bundle" && bundle_id) {
       console.log("🛒 Cart API POST - Processing bundle:", bundle_id)
 
-      // Get bundle details using admin client
-      const { data: bundle, error: bundleError } = await supabaseAdmin
+      // Get bundle details
+      const { data: bundle, error: bundleError } = await supabase
         .from("bundles")
         .select("*")
         .eq("id", bundle_id)
@@ -394,8 +422,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Bundle maximum uses reached" }, { status: 400 })
       }
 
-      // Get bundle items using admin client
-      const { data: bundleItemsData, error: bundleItemsError } = await supabaseAdmin
+      // Get bundle items
+      const { data: bundleItemsData, error: bundleItemsError } = await supabase
         .from("bundle_items")
         .select(`
           *,
@@ -437,8 +465,8 @@ export async function POST(request: NextRequest) {
 
       console.log("🛒 Cart API POST - Bundle pricing:", { originalPrice, discountedPrice, discountAmount })
 
-      // Update bundle uses using admin client
-      const { error: updateError } = await supabaseAdmin
+      // Update bundle uses
+      const { error: updateError } = await supabase
         .from("bundles")
         .update({ current_uses: (bundle.current_uses || 0) + 1 })
         .eq("id", bundle_id)
@@ -448,13 +476,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if item already exists in cart using admin client
+    // Check if item already exists in cart
     console.log("🛒 Cart API POST - Checking for existing item")
 
-    const { data: existingItem, error: existingError } = await supabaseAdmin
+    const { data: existingItem, error: existingError } = await supabase
       .from("cart_items")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .eq("item_type", item_type)
       .eq("product_id", product_id || null)
       .eq("deal_id", deal_id || null)
@@ -469,8 +497,8 @@ export async function POST(request: NextRequest) {
     if (existingItem) {
       console.log("🛒 Cart API POST - Updating existing item")
 
-      // Update quantity using admin client
-      const { data: updatedItem, error: updateError } = await supabaseAdmin
+      // Update quantity
+      const { data: updatedItem, error: updateError } = await supabase
         .from("cart_items")
         .update({
           quantity: existingItem.quantity + quantity,
@@ -490,9 +518,9 @@ export async function POST(request: NextRequest) {
     } else {
       console.log("🛒 Cart API POST - Creating new item")
 
-      // Insert new item using admin client
+      // Insert new item
       const insertData = {
-        user_id: userId,
+        user_id: user.id,
         item_type,
         product_id: product_id || null,
         deal_id: deal_id || null,
@@ -505,7 +533,7 @@ export async function POST(request: NextRequest) {
 
       console.log("🛒 Cart API POST - Insert data:", JSON.stringify(insertData, null, 2))
 
-      const { data: newItem, error: insertError } = await supabaseAdmin
+      const { data: newItem, error: insertError } = await supabase
         .from("cart_items")
         .insert(insertData)
         .select()
@@ -527,11 +555,14 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { user, userId } = await supabaseServer()
+    const user = await getAuthenticatedUser()
 
-    if (!userId) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const cookieStore = await cookies()
+    const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
@@ -540,8 +571,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Item ID is required" }, { status: 400 })
     }
 
-    // Delete item using admin client
-    const { error } = await supabaseAdmin.from("cart_items").delete().eq("id", id).eq("user_id", userId)
+    // Delete item
+    const { error } = await supabase.from("cart_items").delete().eq("id", id).eq("user_id", user.id)
 
     if (error) {
       console.error("Error deleting cart item:", error)
