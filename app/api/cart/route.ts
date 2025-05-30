@@ -15,7 +15,18 @@ export async function GET() {
     const { supabase, userId } = await supabaseServer()
 
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json(
+        {
+          items: [],
+          total: 0,
+          original_total: 0,
+          total_savings: 0,
+          product_items: [],
+          deal_items: [],
+          bundle_items: [],
+        },
+        { status: 200 },
+      )
     }
 
     // Get cart items
@@ -34,111 +45,156 @@ export async function GET() {
     const processedItems = []
     let total = 0
     let originalTotal = 0
-    let totalSavings = 0
     const productItems = []
     const dealItems = []
     const bundleItems = []
 
-    for (const item of cartItems) {
+    for (const item of cartItems || []) {
       const processedItem = { ...item }
 
-      // Process based on item_type
-      if (item.item_type === "product" && item.product_id) {
-        // Get product details
-        const { data: product } = await supabase.from("products").select("*").eq("id", item.product_id).single()
+      try {
+        // Process based on item_type
+        if (item.item_type === "product" && item.product_id) {
+          // Get product details
+          const { data: product, error: productError } = await supabase
+            .from("products")
+            .select("*")
+            .eq("id", item.product_id)
+            .single()
 
-        if (product) {
-          processedItem.product = product
-          processedItem.original_price = product.price
-          processedItem.discounted_price = product.price
-          processedItem.discount_amount = 0
-
-          originalTotal += product.price * item.quantity
-          total += product.price * item.quantity
-
-          productItems.push(processedItem)
-        }
-      } else if (item.item_type === "deal" && item.deal_id) {
-        // Get deal details with product
-        const { data: deal } = await supabase
-          .from("deals")
-          .select("*, product:product_id(*)")
-          .eq("id", item.deal_id)
-          .single()
-
-        if (deal && deal.product) {
-          processedItem.deal = deal
-          processedItem.product = deal.product
-
-          const originalPrice = deal.product.price
-          let discountedPrice = originalPrice
-
-          if (deal.discount_type === "percentage") {
-            discountedPrice = originalPrice * (1 - deal.discount_value / 100)
-          } else if (deal.discount_type === "fixed") {
-            discountedPrice = Math.max(0, originalPrice - deal.discount_value)
+          if (productError) {
+            console.error("Error fetching product:", productError)
+            continue
           }
 
-          processedItem.original_price = originalPrice
-          processedItem.discounted_price = discountedPrice
-          processedItem.discount_amount = originalPrice - discountedPrice
+          if (product) {
+            processedItem.product = product
+            processedItem.original_price = Number(product.price) || 0
+            processedItem.discounted_price = Number(product.price) || 0
+            processedItem.discount_amount = 0
 
-          originalTotal += originalPrice * item.quantity
-          total += discountedPrice * item.quantity
-          totalSavings += (originalPrice - discountedPrice) * item.quantity
+            const itemTotal = (Number(product.price) || 0) * item.quantity
+            originalTotal += itemTotal
+            total += itemTotal
 
-          dealItems.push(processedItem)
-        }
-      } else if (item.item_type === "bundle" && item.bundle_id) {
-        // Get bundle details with products
-        const { data: bundle } = await supabase.from("bundles").select("*").eq("id", item.bundle_id).single()
+            productItems.push(processedItem)
+          }
+        } else if (item.item_type === "deal" && item.deal_id) {
+          // Get deal details with product
+          const { data: deal, error: dealError } = await supabase
+            .from("deals")
+            .select(`
+              *,
+              products (*)
+            `)
+            .eq("id", item.deal_id)
+            .single()
 
-        if (bundle) {
-          // Get bundle items
-          const { data: bundleItems } = await supabase
-            .from("bundle_items")
-            .select("*, product:product_id(*)")
-            .eq("bundle_id", item.bundle_id)
+          if (dealError) {
+            console.error("Error fetching deal:", dealError)
+            continue
+          }
 
-          processedItem.bundle = bundle
-          processedItem.bundle_items = bundleItems || []
+          if (deal && deal.products) {
+            processedItem.deal = deal
+            processedItem.product = deal.products
 
-          let originalPrice = 0
-          if (bundleItems) {
-            for (const bundleItem of bundleItems) {
-              if (bundleItem.product) {
-                originalPrice += bundleItem.product.price * bundleItem.quantity
+            const originalPrice = Number(deal.products.price) || 0
+            let discountedPrice = originalPrice
+
+            if (deal.discount_type === "percentage") {
+              discountedPrice = originalPrice * (1 - (Number(deal.discount_value) || 0) / 100)
+            } else if (deal.discount_type === "fixed") {
+              discountedPrice = Math.max(0, originalPrice - (Number(deal.discount_value) || 0))
+            }
+
+            processedItem.original_price = originalPrice
+            processedItem.discounted_price = discountedPrice
+            processedItem.discount_amount = originalPrice - discountedPrice
+
+            const itemOriginalTotal = originalPrice * item.quantity
+            const itemDiscountedTotal = discountedPrice * item.quantity
+
+            originalTotal += itemOriginalTotal
+            total += itemDiscountedTotal
+
+            dealItems.push(processedItem)
+          }
+        } else if (item.item_type === "bundle" && item.bundle_id) {
+          // Get bundle details with products
+          const { data: bundle, error: bundleError } = await supabase
+            .from("bundles")
+            .select("*")
+            .eq("id", item.bundle_id)
+            .single()
+
+          if (bundleError) {
+            console.error("Error fetching bundle:", bundleError)
+            continue
+          }
+
+          if (bundle) {
+            // Get bundle items
+            const { data: bundleItemsData, error: bundleItemsError } = await supabase
+              .from("bundle_items")
+              .select(`
+                *,
+                products (*)
+              `)
+              .eq("bundle_id", item.bundle_id)
+
+            if (bundleItemsError) {
+              console.error("Error fetching bundle items:", bundleItemsError)
+              continue
+            }
+
+            processedItem.bundle = bundle
+            processedItem.bundle_items = bundleItemsData || []
+
+            let originalPrice = 0
+            if (bundleItemsData) {
+              for (const bundleItem of bundleItemsData) {
+                if (bundleItem.products) {
+                  originalPrice += (Number(bundleItem.products.price) || 0) * bundleItem.quantity
+                }
               }
             }
+
+            let discountedPrice = originalPrice
+            if (bundle.discount_type === "percentage") {
+              discountedPrice = originalPrice * (1 - (Number(bundle.discount_value) || 0) / 100)
+            } else if (bundle.discount_type === "fixed") {
+              discountedPrice = Math.max(0, originalPrice - (Number(bundle.discount_value) || 0))
+            }
+
+            processedItem.original_price = originalPrice
+            processedItem.discounted_price = discountedPrice
+            processedItem.discount_amount = originalPrice - discountedPrice
+
+            const itemOriginalTotal = originalPrice * item.quantity
+            const itemDiscountedTotal = discountedPrice * item.quantity
+
+            originalTotal += itemOriginalTotal
+            total += itemDiscountedTotal
+
+            bundleItems.push(processedItem)
           }
-
-          let discountedPrice = originalPrice
-          if (bundle.discount_type === "percentage") {
-            discountedPrice = originalPrice * (1 - bundle.discount_value / 100)
-          } else if (bundle.discount_type === "fixed") {
-            discountedPrice = Math.max(0, originalPrice - bundle.discount_value)
-          }
-
-          processedItem.original_price = originalPrice
-          processedItem.discounted_price = discountedPrice
-          processedItem.discount_amount = originalPrice - discountedPrice
-
-          originalTotal += originalPrice * item.quantity
-          total += discountedPrice * item.quantity
-          totalSavings += (originalPrice - discountedPrice) * item.quantity
-
-          bundleItems.push(processedItem)
         }
-      }
 
-      processedItems.push(processedItem)
+        processedItems.push(processedItem)
+      } catch (error) {
+        console.error("Error processing cart item:", error)
+        // Continue processing other items
+      }
     }
+
+    const totalSavings = originalTotal - total
 
     return NextResponse.json({
       items: processedItems,
-      total,
-      original_total: originalTotal,
-      total_savings: totalSavings,
+      total: Math.round(total * 100) / 100,
+      original_total: Math.round(originalTotal * 100) / 100,
+      total_savings: Math.round(totalSavings * 100) / 100,
       product_items: productItems,
       deal_items: dealItems,
       bundle_items: bundleItems,
@@ -151,23 +207,30 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🛒 Cart API POST - Starting request")
+
     const { supabase, userId } = await supabaseServer()
 
     if (!userId) {
+      console.log("🛒 Cart API POST - No user ID")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log("🛒 Cart API POST - User ID:", userId)
+
     const body = await request.json()
-    console.log("🛒 Cart API - Received request:", JSON.stringify(body, null, 2))
+    console.log("🛒 Cart API POST - Request body:", JSON.stringify(body, null, 2))
 
     // Validate input
     const result = cartItemSchema.safeParse(body)
     if (!result.success) {
-      console.error("Validation error:", result.error)
-      return NextResponse.json({ error: "Invalid input" }, { status: 400 })
+      console.error("🛒 Cart API POST - Validation error:", result.error)
+      return NextResponse.json({ error: "Invalid input", details: result.error.issues }, { status: 400 })
     }
 
     const { item_type, product_id, deal_id, bundle_id, quantity } = result.data
+
+    console.log("🛒 Cart API POST - Validated data:", { item_type, product_id, deal_id, bundle_id, quantity })
 
     // Validate that the appropriate ID is provided based on item_type
     if (
@@ -175,6 +238,7 @@ export async function POST(request: NextRequest) {
       (item_type === "deal" && !deal_id) ||
       (item_type === "bundle" && !bundle_id)
     ) {
+      console.error("🛒 Cart API POST - Missing ID for item type:", item_type)
       return NextResponse.json({ error: `Missing ${item_type}_id for item_type: ${item_type}` }, { status: 400 })
     }
 
@@ -184,6 +248,8 @@ export async function POST(request: NextRequest) {
     let discountAmount = 0
 
     if (item_type === "product" && product_id) {
+      console.log("🛒 Cart API POST - Processing product:", product_id)
+
       // Get product details
       const { data: product, error: productError } = await supabase
         .from("products")
@@ -191,31 +257,53 @@ export async function POST(request: NextRequest) {
         .eq("id", product_id)
         .single()
 
-      if (productError || !product) {
-        console.error("Error fetching product:", productError)
+      if (productError) {
+        console.error("🛒 Cart API POST - Error fetching product:", productError)
         return NextResponse.json({ error: "Product not found" }, { status: 404 })
       }
 
+      if (!product) {
+        console.error("🛒 Cart API POST - Product not found")
+        return NextResponse.json({ error: "Product not found" }, { status: 404 })
+      }
+
+      console.log("🛒 Cart API POST - Product found:", product.name)
+
       // Check stock
       if (product.stock < quantity) {
+        console.error("🛒 Cart API POST - Not enough stock")
         return NextResponse.json({ error: "Not enough stock available" }, { status: 400 })
       }
 
-      originalPrice = product.price
-      discountedPrice = product.price
+      originalPrice = Number(product.price) || 0
+      discountedPrice = Number(product.price) || 0
       discountAmount = 0
+
+      console.log("🛒 Cart API POST - Product pricing:", { originalPrice, discountedPrice, discountAmount })
     } else if (item_type === "deal" && deal_id) {
+      console.log("🛒 Cart API POST - Processing deal:", deal_id)
+
       // Get deal details with product
       const { data: deal, error: dealError } = await supabase
         .from("deals")
-        .select("*, product:product_id(*)")
+        .select(`
+          *,
+          products (*)
+        `)
         .eq("id", deal_id)
         .single()
 
-      if (dealError || !deal) {
-        console.error("Error fetching deal:", dealError)
+      if (dealError) {
+        console.error("🛒 Cart API POST - Error fetching deal:", dealError)
         return NextResponse.json({ error: "Deal not found" }, { status: 404 })
       }
+
+      if (!deal) {
+        console.error("🛒 Cart API POST - Deal not found")
+        return NextResponse.json({ error: "Deal not found" }, { status: 404 })
+      }
+
+      console.log("🛒 Cart API POST - Deal found:", deal.title)
 
       // Check if deal is active
       const now = new Date()
@@ -223,37 +311,48 @@ export async function POST(request: NextRequest) {
       const endDate = new Date(deal.end_date)
 
       if (!deal.is_active || now < startDate || now > endDate) {
+        console.error("🛒 Cart API POST - Deal is not active")
         return NextResponse.json({ error: "Deal is not active" }, { status: 400 })
       }
 
       // Check if max uses is reached
       if (deal.max_uses && deal.current_uses >= deal.max_uses) {
+        console.error("🛒 Cart API POST - Deal max uses reached")
         return NextResponse.json({ error: "Deal maximum uses reached" }, { status: 400 })
       }
 
       // Check product stock
-      if (deal.product && deal.product.stock < quantity) {
+      if (deal.products && deal.products.stock < quantity) {
+        console.error("🛒 Cart API POST - Not enough stock for deal product")
         return NextResponse.json({ error: "Not enough stock available" }, { status: 400 })
       }
 
       // Calculate price
-      originalPrice = deal.product ? deal.product.price : 0
+      originalPrice = deal.products ? Number(deal.products.price) || 0 : 0
       discountedPrice = originalPrice
 
       if (deal.discount_type === "percentage") {
-        discountedPrice = originalPrice * (1 - deal.discount_value / 100)
+        discountedPrice = originalPrice * (1 - (Number(deal.discount_value) || 0) / 100)
       } else if (deal.discount_type === "fixed") {
-        discountedPrice = Math.max(0, originalPrice - deal.discount_value)
+        discountedPrice = Math.max(0, originalPrice - (Number(deal.discount_value) || 0))
       }
 
       discountAmount = originalPrice - discountedPrice
 
+      console.log("🛒 Cart API POST - Deal pricing:", { originalPrice, discountedPrice, discountAmount })
+
       // Update deal uses
-      await supabase
+      const { error: updateError } = await supabase
         .from("deals")
         .update({ current_uses: (deal.current_uses || 0) + 1 })
         .eq("id", deal_id)
+
+      if (updateError) {
+        console.error("🛒 Cart API POST - Error updating deal uses:", updateError)
+      }
     } else if (item_type === "bundle" && bundle_id) {
+      console.log("🛒 Cart API POST - Processing bundle:", bundle_id)
+
       // Get bundle details
       const { data: bundle, error: bundleError } = await supabase
         .from("bundles")
@@ -261,10 +360,17 @@ export async function POST(request: NextRequest) {
         .eq("id", bundle_id)
         .single()
 
-      if (bundleError || !bundle) {
-        console.error("Error fetching bundle:", bundleError)
+      if (bundleError) {
+        console.error("🛒 Cart API POST - Error fetching bundle:", bundleError)
         return NextResponse.json({ error: "Bundle not found" }, { status: 404 })
       }
+
+      if (!bundle) {
+        console.error("🛒 Cart API POST - Bundle not found")
+        return NextResponse.json({ error: "Bundle not found" }, { status: 404 })
+      }
+
+      console.log("🛒 Cart API POST - Bundle found:", bundle.title)
 
       // Check if bundle is active
       const now = new Date()
@@ -272,60 +378,74 @@ export async function POST(request: NextRequest) {
       const endDate = new Date(bundle.end_date)
 
       if (!bundle.is_active || now < startDate || now > endDate) {
+        console.error("🛒 Cart API POST - Bundle is not active")
         return NextResponse.json({ error: "Bundle is not active" }, { status: 400 })
       }
 
       // Check if max uses is reached
       if (bundle.max_uses && bundle.current_uses >= bundle.max_uses) {
+        console.error("🛒 Cart API POST - Bundle max uses reached")
         return NextResponse.json({ error: "Bundle maximum uses reached" }, { status: 400 })
       }
 
       // Get bundle items
-      const { data: bundleItems, error: bundleItemsError } = await supabase
+      const { data: bundleItemsData, error: bundleItemsError } = await supabase
         .from("bundle_items")
-        .select("*, product:product_id(*)")
+        .select(`
+          *,
+          products (*)
+        `)
         .eq("bundle_id", bundle_id)
 
       if (bundleItemsError) {
-        console.error("Error fetching bundle items:", bundleItemsError)
+        console.error("🛒 Cart API POST - Error fetching bundle items:", bundleItemsError)
         return NextResponse.json({ error: "Failed to fetch bundle items" }, { status: 500 })
       }
 
       // Check stock for all products in bundle
-      for (const item of bundleItems || []) {
-        if (item.product && item.product.stock < item.quantity * quantity) {
-          return NextResponse.json({ error: `Not enough stock for ${item.product.name}` }, { status: 400 })
+      for (const item of bundleItemsData || []) {
+        if (item.products && item.products.stock < item.quantity * quantity) {
+          console.error("🛒 Cart API POST - Not enough stock for bundle item:", item.products.name)
+          return NextResponse.json({ error: `Not enough stock for ${item.products.name}` }, { status: 400 })
         }
       }
 
       // Calculate price
       originalPrice = 0
-      if (bundleItems) {
-        for (const item of bundleItems) {
-          if (item.product) {
-            originalPrice += item.product.price * item.quantity
+      if (bundleItemsData) {
+        for (const item of bundleItemsData) {
+          if (item.products) {
+            originalPrice += (Number(item.products.price) || 0) * item.quantity
           }
         }
       }
 
       discountedPrice = originalPrice
       if (bundle.discount_type === "percentage") {
-        discountedPrice = originalPrice * (1 - bundle.discount_value / 100)
+        discountedPrice = originalPrice * (1 - (Number(bundle.discount_value) || 0) / 100)
       } else if (bundle.discount_type === "fixed") {
-        discountedPrice = Math.max(0, originalPrice - bundle.discount_value)
+        discountedPrice = Math.max(0, originalPrice - (Number(bundle.discount_value) || 0))
       }
 
       discountAmount = originalPrice - discountedPrice
 
+      console.log("🛒 Cart API POST - Bundle pricing:", { originalPrice, discountedPrice, discountAmount })
+
       // Update bundle uses
-      await supabase
+      const { error: updateError } = await supabase
         .from("bundles")
         .update({ current_uses: (bundle.current_uses || 0) + 1 })
         .eq("id", bundle_id)
+
+      if (updateError) {
+        console.error("🛒 Cart API POST - Error updating bundle uses:", updateError)
+      }
     }
 
     // Check if item already exists in cart
-    const { data: existingItem } = await supabase
+    console.log("🛒 Cart API POST - Checking for existing item")
+
+    const { data: existingItem, error: existingError } = await supabase
       .from("cart_items")
       .select("*")
       .eq("user_id", userId)
@@ -335,7 +455,14 @@ export async function POST(request: NextRequest) {
       .eq("bundle_id", bundle_id || null)
       .maybeSingle()
 
+    if (existingError) {
+      console.error("🛒 Cart API POST - Error checking existing item:", existingError)
+      return NextResponse.json({ error: "Error checking existing cart item" }, { status: 500 })
+    }
+
     if (existingItem) {
+      console.log("🛒 Cart API POST - Updating existing item")
+
       // Update quantity
       const { data: updatedItem, error: updateError } = await supabase
         .from("cart_items")
@@ -348,39 +475,47 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error("Error updating cart item:", updateError)
+        console.error("🛒 Cart API POST - Error updating cart item:", updateError)
         return NextResponse.json({ error: "Failed to update cart item" }, { status: 500 })
       }
 
-      return NextResponse.json(updatedItem)
+      console.log("🛒 Cart API POST - Item updated successfully")
+      return NextResponse.json({ success: true, data: updatedItem })
     } else {
+      console.log("🛒 Cart API POST - Creating new item")
+
       // Insert new item
+      const insertData = {
+        user_id: userId,
+        item_type,
+        product_id: product_id || null,
+        deal_id: deal_id || null,
+        bundle_id: bundle_id || null,
+        quantity,
+        original_price: originalPrice,
+        discounted_price: discountedPrice,
+        discount_amount: discountAmount,
+      }
+
+      console.log("🛒 Cart API POST - Insert data:", JSON.stringify(insertData, null, 2))
+
       const { data: newItem, error: insertError } = await supabase
         .from("cart_items")
-        .insert({
-          user_id: userId,
-          item_type,
-          product_id: product_id || null,
-          deal_id: deal_id || null,
-          bundle_id: bundle_id || null,
-          quantity,
-          original_price: originalPrice,
-          discounted_price: discountedPrice,
-          discount_amount: discountAmount,
-        })
+        .insert(insertData)
         .select()
         .single()
 
       if (insertError) {
-        console.error("Error inserting cart item:", insertError)
-        return NextResponse.json({ error: "Failed to add item to cart" }, { status: 500 })
+        console.error("🛒 Cart API POST - Error inserting cart item:", insertError)
+        return NextResponse.json({ error: "Failed to add item to cart", details: insertError }, { status: 500 })
       }
 
-      return NextResponse.json(newItem)
+      console.log("🛒 Cart API POST - Item created successfully")
+      return NextResponse.json({ success: true, data: newItem })
     }
   } catch (error) {
-    console.error("Error in POST /api/cart:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("🛒 Cart API POST - Unexpected error:", error)
+    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 })
   }
 }
 
