@@ -25,10 +25,19 @@ export function useCart() {
             product_items: [],
             deal_items: [],
             bundle_items: [],
+            item_count: 0, // Agregar contador de items
           }
         }
 
-        return await apiClient.cart.get()
+        const cartData = await apiClient.cart.get()
+
+        // Calcular el total de items basado en cart_items, no en productos individuales
+        const itemCount = (cartData.items || []).reduce((total, item) => total + item.quantity, 0)
+
+        return {
+          ...cartData,
+          item_count: itemCount,
+        }
       } catch (error) {
         console.error("Error fetching cart:", error)
         return {
@@ -39,6 +48,7 @@ export function useCart() {
           product_items: [],
           deal_items: [],
           bundle_items: [],
+          item_count: 0,
         }
       }
     },

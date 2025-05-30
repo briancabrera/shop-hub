@@ -270,6 +270,8 @@ export async function GET() {
 
     const totalSavings = originalTotal - total
 
+    const itemCount = processedItems.reduce((total, item) => total + item.quantity, 0)
+
     console.log("🛒 Cart totals:", {
       total: Math.round(total * 100) / 100,
       originalTotal: Math.round(originalTotal * 100) / 100,
@@ -277,6 +279,7 @@ export async function GET() {
       productItems: productItems.length,
       dealItems: dealItems.length,
       bundleItems: bundleItems.length,
+      itemCount: itemCount, // Agregar log del contador
     })
 
     return NextResponse.json({
@@ -287,6 +290,7 @@ export async function GET() {
       product_items: productItems,
       deal_items: dealItems,
       bundle_items: bundleItems,
+      item_count: itemCount, // Agregar al response
     })
   } catch (error) {
     console.error("Error in GET /api/cart:", error)

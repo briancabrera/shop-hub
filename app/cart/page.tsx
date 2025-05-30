@@ -255,7 +255,12 @@ export default function CartPage() {
     <div className="container max-w-6xl mx-auto py-12 px-4">
       <h1 className="text-3xl font-bold mb-8 flex items-center gap-2">
         <ShoppingCart className="h-8 w-8" />
-        Your Cart
+        Your Cart{" "}
+        {cart?.item_count > 0 && (
+          <Badge variant="outline" className="ml-2">
+            {cart.item_count} {cart.item_count === 1 ? "item" : "items"}
+          </Badge>
+        )}
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

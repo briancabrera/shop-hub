@@ -1,170 +1,55 @@
-"use client"
-
-import { useState } from "react"
 import Link from "next/link"
-import { ShoppingCart, User, Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { SearchBar } from "@/components/search/search-bar"
-import { useCart } from "@/hooks/use-cart"
-import { useUser, useLogout } from "@/hooks/use-auth"
+import { useShoppingCart } from "use-shopping-cart"
 
-export function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const { data: cartData, isLoading: cartLoading } = useCart()
-  const { data: userData, isLoading: userLoading } = useUser()
-  const logoutMutation = useLogout()
-
-  const itemCount = cartData?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0
-
-  const handleLogout = () => {
-    logoutMutation.mutate()
-  }
-
-  const closeMobileMenu = () => {
-    setIsMenuOpen(false)
-  }
+const Navbar = () => {
+  const { cartDetails, cartCount, formattedTotalPrice, clearCart, removeItem, totalPrice, cart } = useShoppingCart()
 
   return (
-    <nav className="border-b bg-white sticky top-0 z-50" role="navigation" aria-label="Main navigation">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2" aria-label="ShopHub home">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg" aria-hidden="true">
-                S
-              </span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">ShopHub</span>
+    <nav className="bg-white py-4 shadow-md">
+      <div className="container mx-auto flex items-center justify-between">
+        <Link href="/" className="text-2xl font-bold text-gray-800">
+          My Store
+        </Link>
+
+        <div className="flex items-center space-x-4">
+          <Link href="/" className="text-gray-600 hover:text-gray-800">
+            Home
+          </Link>
+          <Link href="/products" className="text-gray-600 hover:text-gray-800">
+            Products
+          </Link>
+          <Link href="/about" className="text-gray-600 hover:text-gray-800">
+            About
+          </Link>
+          <Link href="/contact" className="text-gray-600 hover:text-gray-800">
+            Contact
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8" aria-label="Primary navigation">
-            <Link
-              href="/products"
-              className="text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md px-2 py-1"
+          <Link href="/cart" className="relative">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 text-gray-600 hover:text-gray-800"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              Products
-            </Link>
-            <Link
-              href="/deals"
-              className="text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md px-2 py-1 relative"
-            >
-              🔥 Deals
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-2 h-2 animate-pulse"></span>
-            </Link>
-          </nav>
-
-          {/* Search Bar - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-lg mx-8">
-            <SearchBar className="w-full" />
-          </div>
-
-          {/* Right Side Icons */}
-          <div className="flex items-center space-x-4">
-            {/* Cart */}
-            <Link href="/cart" aria-label={`Shopping cart with ${itemCount} items`}>
-              <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="w-5 h-5" aria-hidden="true" />
-                {!cartLoading && itemCount > 0 && (
-                  <Badge
-                    className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center p-0 text-xs"
-                    aria-label={`${itemCount} items in cart`}
-                  >
-                    {itemCount}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
-
-            {/* User Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={userData ? `User menu for ${userData.email}` : "User menu"}
-                >
-                  <User className="w-5 h-5" aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {!userLoading && userData ? (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile">Profile</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/orders">Orders</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin">Admin Dashboard</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleLogout} disabled={logoutMutation.isPending}>
-                      {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link href="/login">Sign In</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/signup">Sign Up</Link>
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isMenuOpen}
-            >
-              {isMenuOpen ? (
-                <X className="w-5 h-5" aria-hidden="true" />
-              ) : (
-                <Menu className="w-5 h-5" aria-hidden="true" />
-              )}
-            </Button>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 3h2l.4 2.7M5 5.9l-.4-2.7M7 13a2 2 0 00-4 0H3a2 2 0 00-2 2v5a2 2 0 002 2h14a2 2 0 002-2v-5a2 2 0 00-2-2H5m7 5a2 2 0 104 0m-4-5a2 2 0 104 0m-9 5a2 2 0 012-2h6a2 2 0 012 2"
+              />
+            </svg>
+            {cart?.item_count > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {cart.item_count > 99 ? "99+" : cart.item_count}
+              </span>
+            )}
+          </Link>
         </div>
-
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className="md:hidden border-t py-4" role="navigation" aria-label="Mobile navigation">
-            <div className="flex flex-col space-y-4">
-              {/* Mobile Search */}
-              <div className="px-2">
-                <SearchBar className="w-full" onResultClick={closeMobileMenu} />
-              </div>
-
-              <Link
-                href="/products"
-                className="text-gray-700 hover:text-blue-600 transition-colors px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
-                onClick={closeMobileMenu}
-              >
-                Products
-              </Link>
-              <Link
-                href="/deals"
-                className="text-gray-700 hover:text-blue-600 transition-colors px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md relative"
-                onClick={closeMobileMenu}
-              >
-                🔥 Deals
-                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-2 h-2 animate-pulse"></span>
-              </Link>
-            </div>
-          </div>
-        )}
       </div>
     </nav>
   )
 }
+
+export default Navbar
