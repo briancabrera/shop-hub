@@ -142,3 +142,20 @@ export function useLogout() {
     },
   })
 }
+
+// Combined auth hook for convenience
+export function useAuth() {
+  const user = useUser()
+  const signup = useSignup()
+  const login = useLogin()
+  const logout = useLogout()
+
+  return {
+    user: user.data,
+    isLoading: user.isLoading,
+    isAuthenticated: !!user.data,
+    signup,
+    login,
+    logout,
+  }
+}
