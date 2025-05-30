@@ -12,6 +12,7 @@ import type {
   SearchResponse,
 } from "@/types/api"
 import type { Category } from "@/hooks/use-categories"
+import { supabaseClient } from "@/lib/db-client"
 
 class ApiClient {
   private baseURL = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"
@@ -19,40 +20,118 @@ class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
+    // Get auth token from Supabase client if available
+    let authHeaders = {}
+    if (typeof window !== "undefined") {
+      try {
+        const {
+          data: { session },
+        } = await supabaseClient.auth.getSession()
+        if (session?.access_token) {
+          authHeaders = {
+            Authorization: `Bearer ${session.access_token}`,
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to get auth token:", error)
+      }
+    }
+
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
+        ...authHeaders,
         ...options.headers,
       },
       ...options,
     }
 
     try {
+      console.log(`API Request: ${options.method || "GET"} ${url}`)
       const response = await fetch(url, config)
 
+      // Special handling for specific endpoints that should return null/empty on error
+      const isUserEndpoint = endpoint.startsWith("/api/user")
+      const isCartEndpoint = endpoint.startsWith("/api/cart")
+
       // Handle non-JSON responses
-      const contentType = response.headers.get("content-type")
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error(`Expected JSON response, got ${contentType}`)
+      let data: ApiResponse<T>
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        console.error("Failed to parse JSON response:", parseError)
+
+        // Return appropriate fallback for specific endpoints
+        if (isCartEndpoint) {
+          return { items: [], total: 0 } as unknown as T
+        }
+        if (isUserEndpoint) {
+          return null as unknown as T
+        }
+
+        throw new Error(`Invalid response format`)
       }
 
-      const data: ApiResponse<T> = await response.json()
-
       if (!response.ok) {
+        console.warn(`API Error: ${response.status} ${response.statusText} for ${endpoint}`)
+
         // Handle authentication errors specifically
         if (response.status === 401) {
-          throw new Error("Please sign in to continue")
+          console.warn("Authentication failed for:", endpoint)
+
+          // Return appropriate fallback for specific endpoints
+          if (isCartEndpoint) {
+            return { items: [], total: 0 } as unknown as T
+          }
+          if (isUserEndpoint) {
+            return null as unknown as T
+          }
+
+          throw new Error("Authentication required")
         }
+
+        // Return appropriate fallback for specific endpoints on any error
+        if (isCartEndpoint) {
+          return { items: [], total: 0 } as unknown as T
+        }
+        if (isUserEndpoint) {
+          return null as unknown as T
+        }
+
         throw new Error(data.error || `HTTP error! status: ${response.status}`)
       }
 
       if (!data.success) {
+        console.warn(`API request failed: ${data.error || "Unknown error"} for ${endpoint}`)
+
+        // Return appropriate fallback for specific endpoints
+        if (isCartEndpoint) {
+          return { items: [], total: 0 } as unknown as T
+        }
+        if (isUserEndpoint) {
+          return null as unknown as T
+        }
+
         throw new Error(data.error || "API request failed")
       }
 
       return data.data as T
     } catch (error) {
-      console.error("API request failed:", { url, error })
+      console.error("API request failed:", {
+        url,
+        method: options.method,
+        error: error instanceof Error ? error.message : error,
+      })
+
+      // Return appropriate fallback for specific endpoints
+      if (isCartEndpoint) {
+        console.warn("Returning empty cart due to error")
+        return { items: [], total: 0 } as unknown as T
+      }
+      if (isUserEndpoint) {
+        console.warn("Returning null user due to error")
+        return null as unknown as T
+      }
 
       if (error instanceof TypeError && error.message.includes("fetch")) {
         throw new Error("Network error - please check your connection")
