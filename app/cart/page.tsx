@@ -30,10 +30,29 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     try {
-      const result = await checkoutMutation.mutateAsync()
-      if (result?.url) {
-        window.location.href = result.url
+      if (!cart?.items?.length) {
+        console.error("No items in cart")
+        return
       }
+
+      // Prepare checkout data
+      const checkoutData = {
+        items: cart.items.map((item: any) => ({
+          product_id: item.product_id || item.id,
+          quantity: item.quantity || 1,
+        })),
+        shipping_address: {
+          street: "123 Demo Street",
+          city: "Demo City",
+          state: "Demo State",
+          zip_code: "12345",
+          country: "US",
+        },
+      }
+
+      console.log("Checkout data:", checkoutData)
+
+      await checkoutMutation.mutateAsync(checkoutData)
     } catch (error) {
       console.error("Checkout error:", error)
     }
@@ -370,6 +389,13 @@ export default function CartPage() {
                   </p>
                 </div>
               )}
+
+              {/* Demo Notice */}
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800 text-center">
+                  🎭 <strong>Demo Mode:</strong> This is a simulated checkout process
+                </p>
+              </div>
             </CardContent>
             <CardFooter className="flex-col gap-3">
               <Button
@@ -380,11 +406,11 @@ export default function CartPage() {
               >
                 {checkoutMutation.isPending ? (
                   <>
-                    <LoadingSpinner size="sm" className="mr-2" /> Processing...
+                    <LoadingSpinner size="sm" className="mr-2" /> Processing Demo Order...
                   </>
                 ) : (
                   <>
-                    Proceed to Checkout <ArrowRight className="ml-2 h-4 w-4" />
+                    Place Demo Order <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
