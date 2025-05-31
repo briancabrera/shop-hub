@@ -8,6 +8,8 @@ export function useCheckout() {
 
   return useMutation({
     mutationFn: async (checkoutData: any) => {
+      console.log("Sending checkout request:", checkoutData)
+
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: {
@@ -16,19 +18,34 @@ export function useCheckout() {
         body: JSON.stringify(checkoutData),
       })
 
+      console.log("Checkout response status:", response.status)
+
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Checkout failed")
+        const errorText = await response.text()
+        console.error("Checkout error response:", errorText)
+
+        let errorMessage = "Checkout failed"
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          errorMessage = errorText || errorMessage
+        }
+
+        throw new Error(errorMessage)
       }
 
-      return response.json()
+      const result = await response.json()
+      console.log("Checkout success:", result)
+      return result
     },
     onSuccess: (data) => {
+      console.log("Checkout mutation success:", data)
       // Redirect to order confirmation page
       router.push(`/order-confirmation?order_id=${data.data.order_id}`)
     },
     onError: (error) => {
-      console.error("Checkout error:", error)
+      console.error("Checkout mutation error:", error)
       alert(error.message || "Checkout failed. Please try again.")
     },
   })

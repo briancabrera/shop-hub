@@ -9,15 +9,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = checkoutSchema.parse(body)
 
-    // Get user from session
-    const {
-      data: { session },
-    } = await supabaseAdmin.auth.getSession()
-    const userId = session?.user?.id
+    // For demo purposes, we'll use a mock user ID
+    // In a real app, you would get this from the authenticated session
+    const userId = "demo-user-id"
 
-    if (!userId) {
-      return errorResponse("Authentication required", 401)
-    }
+    console.log("Processing checkout for user:", userId)
+    console.log("Checkout data:", validatedData)
 
     // Fetch product details for all items
     const productIds = validatedData.items.map((item) => item.product_id)
@@ -27,8 +24,11 @@ export async function POST(request: NextRequest) {
       .in("id", productIds)
 
     if (productsError || !products) {
+      console.error("Products error:", productsError)
       return errorResponse("Failed to fetch product details", 500)
     }
+
+    console.log("Found products:", products)
 
     // Check stock and calculate total
     let totalAmount = 0
@@ -56,6 +56,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    console.log("Total amount:", totalAmount)
+    console.log("Order items:", orderItems)
+
     // Create order in database with completed status (simulated payment)
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
@@ -69,8 +72,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (orderError || !order) {
+      console.error("Order creation error:", orderError)
       return errorResponse("Failed to create order", 500)
     }
+
+    console.log("Created order:", order)
 
     // Create order items
     const orderItemsWithOrderId = orderItems.map((item) => ({
@@ -82,24 +88,31 @@ export async function POST(request: NextRequest) {
 
     if (orderItemsError) {
       console.error("Failed to create order items:", orderItemsError)
+      // Don't fail the entire checkout for this
     }
 
     // Update product stock
     for (const item of validatedData.items) {
       const product = products.find((p) => p.id === item.product_id)
       if (product) {
-        await supabaseAdmin
+        const { error: stockError } = await supabaseAdmin
           .from("products")
           .update({ stock: product.stock - item.quantity })
           .eq("id", product.id)
+
+        if (stockError) {
+          console.error("Failed to update stock for product:", product.id, stockError)
+        }
       }
     }
 
-    // Clear the user's cart
-    await supabaseAdmin.from("cart_items").delete().eq("user_id", userId)
+    // For demo purposes, we'll skip clearing the cart since we don't have real user sessions
+    // In a real app: await supabaseAdmin.from("cart_items").delete().eq("user_id", userId)
 
     // Simulate processing time
     await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    console.log("Checkout completed successfully")
 
     return successResponse({
       order_id: order.id,
@@ -108,6 +121,7 @@ export async function POST(request: NextRequest) {
       message: "Payment processed successfully (simulated)",
     })
   } catch (error) {
+    console.error("Checkout error:", error)
     return handleZodError(error)
   }
 }
