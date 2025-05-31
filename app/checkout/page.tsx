@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/hooks/use-cart"
 import { useCheckout } from "@/hooks/use-checkout"
-import { CreditCard, Wallet } from "lucide-react"
+import { CreditCard, Wallet, ArrowLeft } from "lucide-react"
 
 export default function CheckoutPage() {
   const { data: cartData, isLoading: cartLoading } = useCart()
@@ -93,7 +93,14 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+      {/* Header with back button */}
+      <div className="flex items-center gap-4 mb-8">
+        <Button variant="outline" onClick={() => router.push("/cart")} className="flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Cart
+        </Button>
+        <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
+      </div>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -108,36 +115,61 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="firstName">First Name *</Label>
-                    <Input id="firstName" name="firstName" required placeholder="Enter your first name" />
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      required
+                      placeholder="Enter your first name"
+                      defaultValue="John"
+                    />
                   </div>
                   <div>
                     <Label htmlFor="lastName">Last Name *</Label>
-                    <Input id="lastName" name="lastName" required placeholder="Enter your last name" />
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      required
+                      placeholder="Enter your last name"
+                      defaultValue="Doe"
+                    />
                   </div>
                 </div>
 
                 <div>
                   <Label htmlFor="email">Email *</Label>
-                  <Input id="email" type="email" name="email" required placeholder="Enter your email address" />
+                  <Input
+                    id="email"
+                    type="email"
+                    name="email"
+                    required
+                    placeholder="Enter your email address"
+                    defaultValue="john.doe@example.com"
+                  />
                 </div>
 
                 <div>
                   <Label htmlFor="address">Address *</Label>
-                  <Input id="address" name="address" required placeholder="Enter your street address" />
+                  <Input
+                    id="address"
+                    name="address"
+                    required
+                    placeholder="Enter your street address"
+                    defaultValue="123 Main Street"
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="city">City *</Label>
-                    <Input id="city" name="city" required placeholder="City" />
+                    <Input id="city" name="city" required placeholder="City" defaultValue="New York" />
                   </div>
                   <div>
                     <Label htmlFor="state">State *</Label>
-                    <Input id="state" name="state" required placeholder="State" />
+                    <Input id="state" name="state" required placeholder="State" defaultValue="NY" />
                   </div>
                   <div>
                     <Label htmlFor="zipCode">ZIP Code *</Label>
-                    <Input id="zipCode" name="zipCode" required placeholder="ZIP" />
+                    <Input id="zipCode" name="zipCode" required placeholder="ZIP" defaultValue="10001" />
                   </div>
                 </div>
               </CardContent>
@@ -255,7 +287,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={checkoutMutation.isPending}>
-                  {checkoutMutation.isPending ? "Processing..." : "Place Demo Order"}
+                  {checkoutMutation.isPending ? "Processing..." : "Complete Demo Order"}
                 </Button>
               </CardContent>
             </Card>
