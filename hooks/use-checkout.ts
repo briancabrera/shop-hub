@@ -4,19 +4,21 @@ import { useMutation } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
+interface ShippingAddress {
+  full_name: string
+  address_line1: string
+  city: string
+  state: string
+  postal_code: string
+  country: string
+}
+
 interface CheckoutInput {
   items: Array<{
     product_id: string
     quantity: number
   }>
-  shipping_address: {
-    full_name: string
-    address_line1: string
-    city: string
-    state: string
-    postal_code: string
-    country: string
-  }
+  shipping_address: ShippingAddress
 }
 
 interface CheckoutResponse {
@@ -33,6 +35,12 @@ export function useCheckout() {
     mutationFn: async (data: CheckoutInput): Promise<CheckoutResponse> => {
       try {
         console.log("Sending checkout request with data:", data)
+
+        // Validate shipping address
+        const { shipping_address } = data
+        if (!shipping_address.full_name || !shipping_address.address_line1 || !shipping_address.postal_code) {
+          throw new Error("Missing required shipping information")
+        }
 
         const response = await fetch("/api/checkout", {
           method: "POST",
