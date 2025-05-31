@@ -1,30 +1,38 @@
 "use client"
 
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 export function useCheckout() {
   const router = useRouter()
+  const { toast } = useToast()
+  const { isAuthenticated } = useAuth()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (checkoutData: any) => {
-      console.log("Sending checkout request:", checkoutData)
+      // Check if user is authenticated
+      if (!isAuthenticated) {
+        throw new Error("Please log in to complete your purchase")
+      }
+
+      console.log("Sending checkout request with authenticated user")
 
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Important for sending cookies
         body: JSON.stringify(checkoutData),
       })
 
-      console.log("Checkout response status:", response.status)
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("Checkout error response:", errorText)
-
         let errorMessage = "Checkout failed"
+
         try {
           const errorData = JSON.parse(errorText)
           errorMessage = errorData.error || errorMessage
@@ -35,18 +43,39 @@ export function useCheckout() {
         throw new Error(errorMessage)
       }
 
-      const result = await response.json()
-      console.log("Checkout success:", result)
-      return result
+      return await response.json()
     },
     onSuccess: (data) => {
-      console.log("Checkout mutation success:", data)
+      // Invalidate cart query to refresh cart state
+      queryClient.invalidateQueries({ queryKey: ["cart"] })
+
+      toast({
+        title: "Order placed successfully!",
+        description: "Your order has been processed.",
+      })
+
       // Redirect to order confirmation page
       router.push(`/order-confirmation?order_id=${data.data.order_id}`)
     },
-    onError: (error) => {
-      console.error("Checkout mutation error:", error)
-      alert(error.message || "Checkout failed. Please try again.")
+    onError: (error: Error) => {
+      console.error("Checkout error:", error)
+
+      if (error.message.includes("log in") || error.message.includes("Authentication required")) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to complete your purchase",
+          variant: "destructive",
+        })
+
+        // Redirect to login page with return URL
+        router.push(`/login?returnUrl=${encodeURIComponent("/checkout")}`)
+      } else {
+        toast({
+          title: "Checkout failed",
+          description: error.message,
+          variant: "destructive",
+        })
+      }
     },
   })
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,16 +11,30 @@ import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/hooks/use-cart"
 import { useCheckout } from "@/hooks/use-checkout"
-import { CreditCard, Wallet, ArrowLeft } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { CreditCard, Wallet, ArrowLeft, Loader2 } from "lucide-react"
 
 export default function CheckoutPage() {
   const { data: cartData, isLoading: cartLoading } = useCart()
   const checkoutMutation = useCheckout()
   const router = useRouter()
   const [paymentMethod, setPaymentMethod] = useState("card")
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth()
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push(`/login?returnUrl=${encodeURIComponent("/checkout")}`)
+    }
+  }, [authLoading, isAuthenticated, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!isAuthenticated) {
+      router.push(`/login?returnUrl=${encodeURIComponent("/checkout")}`)
+      return
+    }
 
     if (!cartData?.items?.length) {
       alert("Your cart is empty")
@@ -102,6 +116,30 @@ export default function CheckoutPage() {
     return item.quantity || 1
   }
 
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-lg">Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect will happen via useEffect if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-lg">Redirecting to login...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (cartLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -142,15 +180,12 @@ export default function CheckoutPage() {
         <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
       </div>
 
-      {/* Debug info in development */}
-      {process.env.NODE_ENV === "development" && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800">
-            <strong>Debug:</strong> Cart has {cartData?.items?.length || 0} items
+      {/* User info banner */}
+      {user && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>Logged in as:</strong> {user.email}
           </p>
-          <pre className="text-xs mt-2 text-yellow-700 max-h-32 overflow-y-auto">
-            {JSON.stringify(cartData, null, 2)}
-          </pre>
         </div>
       )}
 
@@ -172,7 +207,7 @@ export default function CheckoutPage() {
                       name="firstName"
                       required
                       placeholder="Enter your first name"
-                      defaultValue="John"
+                      defaultValue={user?.full_name?.split(" ")[0] || ""}
                     />
                   </div>
                   <div>
@@ -182,7 +217,7 @@ export default function CheckoutPage() {
                       name="lastName"
                       required
                       placeholder="Enter your last name"
-                      defaultValue="Doe"
+                      defaultValue={user?.full_name?.split(" ")[1] || ""}
                     />
                   </div>
                 </div>
@@ -195,33 +230,28 @@ export default function CheckoutPage() {
                     name="email"
                     required
                     placeholder="Enter your email address"
-                    defaultValue="john.doe@example.com"
+                    defaultValue={user?.email || ""}
+                    readOnly={!!user?.email}
                   />
                 </div>
 
                 <div>
                   <Label htmlFor="address">Address *</Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    required
-                    placeholder="Enter your street address"
-                    defaultValue="123 Main Street"
-                  />
+                  <Input id="address" name="address" required placeholder="Enter your street address" />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="city">City *</Label>
-                    <Input id="city" name="city" required placeholder="City" defaultValue="New York" />
+                    <Input id="city" name="city" required placeholder="City" />
                   </div>
                   <div>
                     <Label htmlFor="state">State *</Label>
-                    <Input id="state" name="state" required placeholder="State" defaultValue="NY" />
+                    <Input id="state" name="state" required placeholder="State" />
                   </div>
                   <div>
                     <Label htmlFor="zipCode">ZIP Code *</Label>
-                    <Input id="zipCode" name="zipCode" required placeholder="ZIP" defaultValue="10001" />
+                    <Input id="zipCode" name="zipCode" required placeholder="ZIP" />
                   </div>
                 </div>
               </CardContent>
@@ -350,7 +380,14 @@ export default function CheckoutPage() {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={checkoutMutation.isPending}>
-                  {checkoutMutation.isPending ? "Processing..." : "Complete Demo Order"}
+                  {checkoutMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Complete Demo Order"
+                  )}
                 </Button>
               </CardContent>
             </Card>

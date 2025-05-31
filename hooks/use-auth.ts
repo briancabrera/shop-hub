@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { supabaseClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import type { User, UserSignupInput, UserLoginInput } from "@/types"
+import { useEffect } from "react"
 
 export function useUser() {
   return useQuery({
@@ -98,12 +99,16 @@ export function useLogin() {
       return authData
     },
     onSuccess: () => {
+      // Invalidate all user-related queries
       queryClient.invalidateQueries({ queryKey: ["user"] })
+      queryClient.invalidateQueries({ queryKey: ["cart"] })
+
       toast({
         title: "Welcome back",
         description: "You have been logged in successfully",
       })
-      router.push("/")
+
+      // Router navigation is handled in the component to support returnUrl
     },
     onError: (error: Error) => {
       toast({
@@ -149,6 +154,27 @@ export function useAuth() {
   const signup = useSignup()
   const login = useLogin()
   const logout = useLogout()
+  const queryClient = useQueryClient()
+
+  // Listen for authentication changes
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabaseClient.auth.onAuthStateChange((event, session) => {
+      console.log("🔐 Auth state changed:", event, session?.user?.id)
+
+      if (event === "SIGNED_IN") {
+        // Invalidate queries when user logs in
+        queryClient.invalidateQueries({ queryKey: ["user"] })
+        queryClient.invalidateQueries({ queryKey: ["cart"] })
+      } else if (event === "SIGNED_OUT") {
+        // Clear queries when user logs out
+        queryClient.clear()
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [queryClient])
 
   return {
     user: user.data,
