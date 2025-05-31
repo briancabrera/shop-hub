@@ -105,12 +105,8 @@ export function useAddToCart() {
           title: "Sign in required",
           description: "Please sign in to add items to your cart",
           variant: "destructive",
-          action: (
-            <button onClick={() => router.push("/login")} className="bg-white text-black px-3 py-1 rounded text-sm">
-              Sign In
-            </button>
-          ),
         })
+        router.push("/login")
       } else {
         toast({
           title: "Error",

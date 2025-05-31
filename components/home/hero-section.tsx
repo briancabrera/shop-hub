@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, ShoppingBag, Truck, CreditCard, Clock, Check } from "lucide-react"
+import { ArrowRight, ShoppingBag, Truck, CreditCard, Clock } from "lucide-react"
 
 export function HeroSection() {
   return (
@@ -69,7 +69,15 @@ export function HeroSection() {
               />
               <div className="absolute -bottom-6 -right-6 bg-white rounded-2xl shadow-lg p-4 flex items-center gap-3 border border-gray-100">
                 <div className="bg-green-500 rounded-full p-2">
-                  <Check className="h-6 w-6 text-white" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">Trusted by</p>

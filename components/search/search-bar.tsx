@@ -18,23 +18,30 @@ interface SearchBarProps {
   onSearchChange?: (query: string) => void
 }
 
-export function SearchBar(props: SearchBarProps) {
-  const { placeholder = "Search products...", className = "", onResultClick, initialQuery = "", onSearchChange } = props
-
+export function SearchBar({
+  placeholder = "Search products...",
+  className = "",
+  onResultClick,
+  initialQuery = "",
+  onSearchChange,
+}: SearchBarProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
+  // Usar hook de búsqueda avanzada
   const { query, searchResults, isLoading, isOpen, handleSearch, clearSearch, closeResults, openResults } =
     useAdvancedSearch(initialQuery)
 
+  // Notificar cambios en la búsqueda al componente padre
   useEffect(() => {
     if (onSearchChange) {
       onSearchChange(query)
     }
   }, [query, onSearchChange])
 
+  // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen || searchResults.results.length === 0) return
@@ -54,16 +61,17 @@ export function SearchBar(props: SearchBarProps) {
             const selectedProduct = searchResults.results[selectedIndex]
             router.push(`/products/${selectedProduct.id}`)
             closeResults()
-            if (onResultClick) onResultClick()
+            onResultClick?.()
           } else if (query.trim()) {
+            // Navigate to search results page using the products page with query
             router.push(`/products?q=${encodeURIComponent(query.trim())}`)
             closeResults()
-            if (onResultClick) onResultClick()
+            onResultClick?.()
           }
           break
         case "Escape":
           closeResults()
-          if (inputRef.current) inputRef.current.blur()
+          inputRef.current?.blur()
           break
       }
     }
@@ -72,6 +80,7 @@ export function SearchBar(props: SearchBarProps) {
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [isOpen, searchResults.results, selectedIndex, query, router, closeResults, onResultClick])
 
+  // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -83,6 +92,7 @@ export function SearchBar(props: SearchBarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [closeResults])
 
+  // Reset selected index when results change
   useEffect(() => {
     setSelectedIndex(-1)
   }, [searchResults.results])
@@ -92,7 +102,7 @@ export function SearchBar(props: SearchBarProps) {
     if (query.trim()) {
       router.push(`/products?q=${encodeURIComponent(query.trim())}`)
       closeResults()
-      if (onResultClick) onResultClick()
+      onResultClick?.()
     }
   }
 
@@ -103,20 +113,20 @@ export function SearchBar(props: SearchBarProps) {
 
   const handleClear = () => {
     clearSearch()
-    if (inputRef.current) inputRef.current.focus()
+    inputRef.current?.focus()
   }
 
   const handleResultClick = (productId: string) => {
     router.push(`/products/${productId}`)
     closeResults()
-    if (onResultClick) onResultClick()
+    onResultClick?.()
   }
 
   const handleViewAllResults = () => {
     if (query.trim()) {
       router.push(`/products?q=${encodeURIComponent(query.trim())}`)
       closeResults()
-      if (onResultClick) onResultClick()
+      onResultClick?.()
     }
   }
 
@@ -146,6 +156,7 @@ export function SearchBar(props: SearchBarProps) {
         </div>
       </form>
 
+      {/* Search Results Dropdown */}
       {isOpen && (
         <SearchResults
           results={searchResults.results}
