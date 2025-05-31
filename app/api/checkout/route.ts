@@ -2,13 +2,8 @@ import type { NextRequest } from "next/server"
 import { supabaseAdmin } from "@/lib/db"
 import { checkoutSchema } from "@/lib/validations"
 import { successResponse, errorResponse, handleZodError } from "@/lib/api-utils"
-import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
-})
-
-// POST /api/checkout - Process checkout using Stripe
+// POST /api/checkout - Process simulated checkout
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -37,7 +32,6 @@ export async function POST(request: NextRequest) {
 
     // Check stock and calculate total
     let totalAmount = 0
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = []
     const orderItems = []
 
     for (const item of validatedData.items) {
@@ -54,18 +48,6 @@ export async function POST(request: NextRequest) {
       const itemTotal = product.price * item.quantity
       totalAmount += itemTotal
 
-      // Add to Stripe line items
-      lineItems.push({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: product.name,
-          },
-          unit_amount: Math.round(product.price * 100), // Stripe uses cents
-        },
-        quantity: item.quantity,
-      })
-
       // Prepare order items for database
       orderItems.push({
         product_id: product.id,
@@ -74,13 +56,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Create order in database
+    // Create order in database with completed status (simulated payment)
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
         user_id: userId,
         total_amount: totalAmount,
-        status: "pending",
+        status: "completed", // Simulated successful payment
         shipping_address: validatedData.shipping_address,
       })
       .select()
@@ -90,25 +72,40 @@ export async function POST(request: NextRequest) {
       return errorResponse("Failed to create order", 500)
     }
 
-    // Create Stripe checkout session
-    const checkoutSession = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: lineItems,
-      mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/order-confirmation?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cart`,
-      metadata: {
-        order_id: order.id,
-        user_id: userId,
-      },
-    })
+    // Create order items
+    const orderItemsWithOrderId = orderItems.map((item) => ({
+      ...item,
+      order_id: order.id,
+    }))
 
-    // Update order with Stripe session ID
-    await supabaseAdmin.from("orders").update({ stripe_session_id: checkoutSession.id }).eq("id", order.id)
+    const { error: orderItemsError } = await supabaseAdmin.from("order_items").insert(orderItemsWithOrderId)
+
+    if (orderItemsError) {
+      console.error("Failed to create order items:", orderItemsError)
+    }
+
+    // Update product stock
+    for (const item of validatedData.items) {
+      const product = products.find((p) => p.id === item.product_id)
+      if (product) {
+        await supabaseAdmin
+          .from("products")
+          .update({ stock: product.stock - item.quantity })
+          .eq("id", product.id)
+      }
+    }
+
+    // Clear the user's cart
+    await supabaseAdmin.from("cart_items").delete().eq("user_id", userId)
+
+    // Simulate processing time
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     return successResponse({
-      checkout_url: checkoutSession.url,
-      session_id: checkoutSession.id,
+      order_id: order.id,
+      total_amount: totalAmount,
+      status: "completed",
+      message: "Payment processed successfully (simulated)",
     })
   } catch (error) {
     return handleZodError(error)

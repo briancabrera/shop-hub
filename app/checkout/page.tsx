@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,12 +11,13 @@ import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/hooks/use-cart"
 import { useCheckout } from "@/hooks/use-checkout"
+import { CreditCard, Wallet } from "lucide-react"
 
 export default function CheckoutPage() {
   const { data: cartData, isLoading: cartLoading } = useCart()
   const checkoutMutation = useCheckout()
   const router = useRouter()
-  const [isProcessing, setIsProcessing] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState("card")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,15 +45,23 @@ export default function CheckoutPage() {
   }
 
   if (cartLoading) {
-    return <div>Loading...</div>
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div className="h-64 bg-gray-200 rounded"></div>
+              <div className="h-48 bg-gray-200 rounded"></div>
+            </div>
+            <div className="h-96 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!cartData?.items?.length) {
-    router.push("/cart")
-    return null
-  }
-
-  if (cartData?.items?.length === 0) {
     router.push("/cart")
     return null
   }
@@ -93,18 +101,18 @@ export default function CheckoutPage() {
                   <Input id="address" name="address" required />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="city">City</Label>
                     <Input id="city" name="city" required />
                   </div>
                   <div>
-                    <Label htmlFor="zipCode">ZIP Code</Label>
-                    <Input id="zipCode" name="zipCode" required />
-                  </div>
-                  <div>
                     <Label htmlFor="state">State</Label>
                     <Input id="state" name="state" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="zipCode">ZIP Code</Label>
+                    <Input id="zipCode" name="zipCode" required />
                   </div>
                 </div>
               </CardContent>
@@ -113,37 +121,60 @@ export default function CheckoutPage() {
             {/* Payment Method */}
             <Card>
               <CardHeader>
-                <CardTitle>Payment Method</CardTitle>
+                <CardTitle>Payment Method (Simulated)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <RadioGroup defaultValue="card">
-                  <div className="flex items-center space-x-2">
+                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg">
                     <RadioGroupItem value="card" id="card" />
-                    <Label htmlFor="card">Credit/Debit Card</Label>
+                    <CreditCard className="w-5 h-5" />
+                    <Label htmlFor="card" className="flex-1">
+                      Credit/Debit Card (Demo)
+                    </Label>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg">
                     <RadioGroupItem value="paypal" id="paypal" />
-                    <Label htmlFor="paypal">PayPal</Label>
+                    <Wallet className="w-5 h-5" />
+                    <Label htmlFor="paypal" className="flex-1">
+                      PayPal (Demo)
+                    </Label>
                   </div>
                 </RadioGroup>
 
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="cardNumber">Card Number</Label>
-                    <Input id="cardNumber" placeholder="1234 5678 9012 3456" required />
+                {paymentMethod === "card" && (
+                  <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">
+                      This is a demo payment form. No real payment will be processed.
+                    </p>
+                    <div>
+                      <Label htmlFor="cardNumber">Card Number</Label>
+                      <Input
+                        id="cardNumber"
+                        placeholder="4242 4242 4242 4242"
+                        defaultValue="4242 4242 4242 4242"
+                        disabled
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="expiry">Expiry Date</Label>
+                        <Input id="expiry" placeholder="12/25" defaultValue="12/25" disabled />
+                      </div>
+                      <div>
+                        <Label htmlFor="cvv">CVV</Label>
+                        <Input id="cvv" placeholder="123" defaultValue="123" disabled />
+                      </div>
+                    </div>
                   </div>
+                )}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="expiry">Expiry Date</Label>
-                      <Input id="expiry" placeholder="MM/YY" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="cvv">CVV</Label>
-                      <Input id="cvv" placeholder="123" required />
-                    </div>
+                {paymentMethod === "paypal" && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">
+                      PayPal payment simulation. You will be redirected to a demo confirmation page.
+                    </p>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -192,8 +223,14 @@ export default function CheckoutPage() {
                   <span>${(cartData?.total * 1.08).toFixed(2)}</span>
                 </div>
 
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    🎭 This is a demo checkout. No real payment will be processed.
+                  </p>
+                </div>
+
                 <Button type="submit" className="w-full" size="lg" disabled={checkoutMutation.isPending}>
-                  {checkoutMutation.isPending ? "Processing..." : "Place Order"}
+                  {checkoutMutation.isPending ? "Processing..." : "Place Demo Order"}
                 </Button>
               </CardContent>
             </Card>
