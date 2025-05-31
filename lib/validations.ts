@@ -35,15 +35,20 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 })
 
+// Schema for checkout API
 export const checkoutSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  address: z.string().min(1, "Address is required"),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
-  zipCode: z.string().min(1, "ZIP code is required"),
-  country: z.string().min(1, "Country is required"),
-  phone: z.string().optional(),
-  saveInfo: z.boolean().optional(),
+  items: z.array(
+    z.object({
+      product_id: z.string().uuid("Invalid product ID"),
+      quantity: z.number().int().min(1, "Quantity must be at least 1"),
+    }),
+  ),
+  shipping_address: z.object({
+    full_name: z.string().min(1, "Full name is required"),
+    address_line1: z.string().min(1, "Address is required"),
+    city: z.string().min(1, "City is required"),
+    state: z.string().min(1, "State is required"),
+    postal_code: z.string().min(1, "Postal code is required"),
+    country: z.string().min(1, "Country is required"),
+  }),
 })

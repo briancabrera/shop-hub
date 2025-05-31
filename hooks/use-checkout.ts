@@ -10,10 +10,11 @@ interface CheckoutInput {
     quantity: number
   }>
   shipping_address: {
-    street: string
+    full_name: string
+    address_line1: string
     city: string
     state: string
-    zip_code: string
+    postal_code: string
     country: string
   }
 }
@@ -31,6 +32,8 @@ export function useCheckout() {
   return useMutation({
     mutationFn: async (data: CheckoutInput): Promise<CheckoutResponse> => {
       try {
+        console.log("Sending checkout request with data:", data)
+
         const response = await fetch("/api/checkout", {
           method: "POST",
           headers: {
@@ -40,6 +43,7 @@ export function useCheckout() {
         })
 
         const responseText = await response.text()
+        console.log("Checkout response:", responseText)
 
         if (!response.ok) {
           let errorMessage = "Checkout failed"

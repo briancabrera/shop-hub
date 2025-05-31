@@ -22,26 +22,44 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!cartData?.items?.length) return
+    if (!cartData?.items?.length) {
+      alert("Your cart is empty")
+      return
+    }
 
     const formData = new FormData(e.target as HTMLFormElement)
 
-    const shippingAddress = {
-      full_name: formData.get("firstName") + " " + formData.get("lastName"),
-      address_line1: formData.get("address") as string,
-      city: formData.get("city") as string,
-      state: formData.get("state") as string,
-      postal_code: formData.get("zipCode") as string,
-      country: "US",
+    // Validate required fields
+    const firstName = formData.get("firstName") as string
+    const lastName = formData.get("lastName") as string
+    const email = formData.get("email") as string
+    const address = formData.get("address") as string
+    const city = formData.get("city") as string
+    const state = formData.get("state") as string
+    const zipCode = formData.get("zipCode") as string
+
+    if (!firstName || !lastName || !email || !address || !city || !state || !zipCode) {
+      alert("Please fill in all required fields")
+      return
     }
 
-    checkoutMutation.mutate({
+    const checkoutData = {
       items: cartData.items.map((item) => ({
         product_id: item.product.id,
         quantity: item.quantity,
       })),
-      shipping_address: shippingAddress,
-    })
+      shipping_address: {
+        full_name: `${firstName} ${lastName}`,
+        address_line1: address,
+        city: city,
+        state: state,
+        postal_code: zipCode,
+        country: "US",
+      },
+    }
+
+    console.log("Submitting checkout data:", checkoutData)
+    checkoutMutation.mutate(checkoutData)
   }
 
   if (cartLoading) {
@@ -62,8 +80,15 @@ export default function CheckoutPage() {
   }
 
   if (!cartData?.items?.length) {
-    router.push("/cart")
-    return null
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Your cart is empty</h1>
+          <p className="text-gray-600 mb-8">Add some items to your cart before checking out.</p>
+          <Button onClick={() => router.push("/products")}>Continue Shopping</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -82,37 +107,37 @@ export default function CheckoutPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" name="firstName" required />
+                    <Label htmlFor="firstName">First Name *</Label>
+                    <Input id="firstName" name="firstName" required placeholder="Enter your first name" />
                   </div>
                   <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" name="lastName" required />
+                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Input id="lastName" name="lastName" required placeholder="Enter your last name" />
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" name="email" required />
+                  <Label htmlFor="email">Email *</Label>
+                  <Input id="email" type="email" name="email" required placeholder="Enter your email address" />
                 </div>
 
                 <div>
-                  <Label htmlFor="address">Address</Label>
-                  <Input id="address" name="address" required />
+                  <Label htmlFor="address">Address *</Label>
+                  <Input id="address" name="address" required placeholder="Enter your street address" />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="city">City</Label>
-                    <Input id="city" name="city" required />
+                    <Label htmlFor="city">City *</Label>
+                    <Input id="city" name="city" required placeholder="City" />
                   </div>
                   <div>
-                    <Label htmlFor="state">State</Label>
-                    <Input id="state" name="state" required />
+                    <Label htmlFor="state">State *</Label>
+                    <Input id="state" name="state" required placeholder="State" />
                   </div>
                   <div>
-                    <Label htmlFor="zipCode">ZIP Code</Label>
-                    <Input id="zipCode" name="zipCode" required />
+                    <Label htmlFor="zipCode">ZIP Code *</Label>
+                    <Input id="zipCode" name="zipCode" required placeholder="ZIP" />
                   </div>
                 </div>
               </CardContent>
@@ -121,7 +146,7 @@ export default function CheckoutPage() {
             {/* Payment Method */}
             <Card>
               <CardHeader>
-                <CardTitle>Payment Method (Simulated)</CardTitle>
+                <CardTitle>Payment Method (Demo)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
