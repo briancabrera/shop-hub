@@ -6,23 +6,17 @@ import { useToast } from "@/hooks/use-toast"
 import { supabaseClient } from "@/lib/supabase/client"
 import type { CartItemInput } from "@/types"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/hooks/use-auth"
 
 export function useCart() {
-  const { isAuthenticated, user } = useAuth()
-
   return useQuery({
-    queryKey: ["cart", user?.id],
+    queryKey: ["cart"],
     queryFn: async () => {
-      console.log("🛒 useCart: Fetching cart data for user:", user?.id)
-
       try {
         const {
           data: { session },
         } = await supabaseClient.auth.getSession()
 
         if (!session?.user) {
-          console.log("🛒 useCart: No authenticated user, returning empty cart")
           return {
             items: [],
             total: 0,
@@ -31,26 +25,21 @@ export function useCart() {
             product_items: [],
             deal_items: [],
             bundle_items: [],
-            item_count: 0,
+            item_count: 0, // Agregar contador de items
           }
         }
 
-        console.log("🛒 useCart: Calling API to get cart data")
         const cartData = await apiClient.cart.get()
-        console.log("🛒 useCart: Cart data received:", cartData)
 
         // Calcular el total de items basado en cart_items, no en productos individuales
         const itemCount = (cartData.items || []).reduce((total, item) => total + item.quantity, 0)
 
-        const result = {
+        return {
           ...cartData,
           item_count: itemCount,
         }
-
-        console.log("🛒 useCart: Final cart result:", result)
-        return result
       } catch (error) {
-        console.error("🛒 useCart: Error fetching cart:", error)
+        console.error("Error fetching cart:", error)
         return {
           items: [],
           total: 0,
@@ -64,9 +53,6 @@ export function useCart() {
       }
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
-    enabled: true, // Siempre habilitado para que se ejecute
-    refetchOnMount: true, // Refetch cuando el componente se monta
-    refetchOnWindowFocus: false, // No refetch en window focus para evitar llamadas excesivas
   })
 }
 
@@ -74,7 +60,6 @@ export function useAddToCart() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const router = useRouter()
-  const { user } = useAuth()
 
   return useMutation({
     mutationFn: async (item: CartItemInput) => {
@@ -98,9 +83,7 @@ export function useAddToCart() {
       }
     },
     onSuccess: (_, variables) => {
-      // Invalidar queries relacionadas con el carrito
       queryClient.invalidateQueries({ queryKey: ["cart"] })
-      queryClient.invalidateQueries({ queryKey: ["cart", user?.id] })
 
       let message = "Item has been added to your cart"
       if (variables.item_type === "deal") {
@@ -138,17 +121,13 @@ export function useAddToCart() {
 export function useRemoveFromCart() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { user } = useAuth()
 
   return useMutation({
     mutationFn: async (itemId: string) => {
       return await apiClient.cart.remove(itemId)
     },
     onSuccess: () => {
-      // Invalidar queries relacionadas con el carrito
       queryClient.invalidateQueries({ queryKey: ["cart"] })
-      queryClient.invalidateQueries({ queryKey: ["cart", user?.id] })
-
       toast({
         title: "Removed from cart",
         description: "Item has been removed from your cart",

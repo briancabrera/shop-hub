@@ -64,17 +64,7 @@ export default function CartPage() {
   }
 
   const renderCartItem = (item: any) => {
-    // Verificar que el item tenga la estructura correcta
-    if (!item) {
-      console.warn("Cart item is undefined:", item)
-      return null
-    }
-
-    const savings = (item.discount_amount || 0) * (item.quantity || 1)
-    const displayName = item.display_name || item.name || "Unknown Item"
-    const displayImage = item.display_image || item.image_url || "/placeholder.svg?height=96&width=96"
-    const originalPrice = item.original_price || item.price || 0
-    const discountedPrice = item.discounted_price || item.price || 0
+    const savings = item.discount_amount * item.quantity || 0
 
     return (
       <Card key={item.id} className="relative">
@@ -83,8 +73,8 @@ export default function CartPage() {
             {/* Item Image */}
             <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden relative flex-shrink-0">
               <Image
-                src={displayImage || "/placeholder.svg"}
-                alt={displayName}
+                src={item.display_image || "/placeholder.svg?height=96&width=96"}
+                alt={item.display_name || "Item"}
                 width={96}
                 height={96}
                 className="w-full h-full object-cover"
@@ -95,7 +85,7 @@ export default function CartPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 text-lg mb-2">{displayName}</h3>
+                  <h3 className="font-semibold text-gray-900 text-lg mb-2">{item.display_name}</h3>
 
                   {/* Item Type Badge */}
                   <div className="flex items-center gap-2 mb-3">
@@ -123,17 +113,13 @@ export default function CartPage() {
                   {item.item_type === "deal" && item.deal && (
                     <div className="mb-3 p-3 bg-red-50 border border-red-100 rounded-lg">
                       <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-medium text-red-800">{item.deal_title || item.deal.title}</h4>
-                        {item.deal.end_date && (
-                          <div className="flex items-center text-xs text-orange-600">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {formatTimeRemaining(item.deal.end_date)}
-                          </div>
-                        )}
+                        <h4 className="font-medium text-red-800">{item.deal_title}</h4>
+                        <div className="flex items-center text-xs text-orange-600">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {formatTimeRemaining(item.deal.end_date)}
+                        </div>
                       </div>
-                      {(item.deal_description || item.deal.description) && (
-                        <p className="text-sm text-red-700">{item.deal_description || item.deal.description}</p>
-                      )}
+                      {item.deal_description && <p className="text-sm text-red-700">{item.deal_description}</p>}
                       <div className="flex items-center mt-2">
                         <TrendingDown className="w-4 h-4 text-green-600 mr-1" />
                         <span className="text-sm font-medium text-green-600">
@@ -148,7 +134,7 @@ export default function CartPage() {
                   {/* Bundle Information */}
                   {item.item_type === "bundle" && item.bundle_products && (
                     <div className="mb-3 p-3 bg-purple-50 border border-purple-100 rounded-lg">
-                      <h4 className="font-medium text-purple-800 mb-2">{item.bundle_title || "Bundle"}</h4>
+                      <h4 className="font-medium text-purple-800 mb-2">{item.bundle_title}</h4>
                       {item.bundle_description && (
                         <p className="text-sm text-purple-700 mb-2">{item.bundle_description}</p>
                       )}
@@ -160,17 +146,17 @@ export default function CartPage() {
                               <div className="w-6 h-6 bg-purple-100 rounded mr-2 overflow-hidden">
                                 <Image
                                   src={product.image_url || "/placeholder.svg?height=24&width=24"}
-                                  alt={product.name || "Product"}
+                                  alt={product.name}
                                   width={24}
                                   height={24}
                                   className="w-full h-full object-cover"
                                 />
                               </div>
                               <span>
-                                {product.bundle_quantity || 1}x {product.name || "Product"}
+                                {product.bundle_quantity}x {product.name}
                               </span>
                             </div>
-                            <span className="font-medium">{formatPrice(product.price || 0)}</span>
+                            <span className="font-medium">{formatPrice(product.price)}</span>
                           </div>
                         ))}
                         {item.bundle_products.length > 0 && (
@@ -178,22 +164,20 @@ export default function CartPage() {
                             <div className="border-t border-purple-200 mt-2 pt-2">
                               <div className="flex justify-between text-xs font-medium text-purple-800">
                                 <span>Bundle Total (before discount):</span>
-                                <span>{formatPrice(originalPrice)}</span>
+                                <span>{formatPrice(item.original_price)}</span>
                               </div>
                             </div>
                           </>
                         )}
                       </div>
-                      {item.bundle && (
-                        <div className="flex items-center mt-2">
-                          <TrendingDown className="w-4 h-4 text-green-600 mr-1" />
-                          <span className="text-sm font-medium text-green-600">
-                            {item.bundle.discount_type === "percentage"
-                              ? `${item.bundle.discount_value}% OFF Bundle`
-                              : `$${item.bundle.discount_value} OFF Bundle`}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex items-center mt-2">
+                        <TrendingDown className="w-4 h-4 text-green-600 mr-1" />
+                        <span className="text-sm font-medium text-green-600">
+                          {item.bundle.discount_type === "percentage"
+                            ? `${item.bundle.discount_value}% OFF Bundle`
+                            : `$${item.bundle.discount_value} OFF Bundle`}
+                        </span>
+                      </div>
                     </div>
                   )}
 
@@ -201,20 +185,20 @@ export default function CartPage() {
                   <div className="flex items-center space-x-3 mb-3">
                     {savings > 0 ? (
                       <>
-                        <span className="text-xl font-bold text-green-600">{formatPrice(discountedPrice)}</span>
-                        <span className="text-lg text-gray-500 line-through">{formatPrice(originalPrice)}</span>
+                        <span className="text-xl font-bold text-green-600">{formatPrice(item.discounted_price)}</span>
+                        <span className="text-lg text-gray-500 line-through">{formatPrice(item.original_price)}</span>
                         <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                          Save {formatPrice(item.discount_amount || 0)}
+                          Save {formatPrice(item.discount_amount)}
                         </Badge>
                       </>
                     ) : (
-                      <span className="text-xl font-bold text-gray-900">{formatPrice(originalPrice)}</span>
+                      <span className="text-xl font-bold text-gray-900">{formatPrice(item.original_price)}</span>
                     )}
                   </div>
 
                   {/* Quantity and Remove */}
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Quantity: {item.quantity || 1}</span>
+                    <span className="text-sm text-gray-600">Quantity: {item.quantity}</span>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -231,11 +215,11 @@ export default function CartPage() {
                 {/* Total Price */}
                 <div className="text-right ml-6">
                   <p className="text-xl font-bold text-gray-900">
-                    {formatPrice(discountedPrice * (item.quantity || 1))}
+                    {formatPrice(item.discounted_price * item.quantity)}
                   </p>
                   {savings > 0 && (
                     <p className="text-sm text-gray-500 line-through">
-                      {formatPrice(originalPrice * (item.quantity || 1))}
+                      {formatPrice(item.original_price * item.quantity)}
                     </p>
                   )}
                   {savings > 0 && <p className="text-sm font-medium text-green-600">Save {formatPrice(savings)}</p>}
@@ -299,37 +283,7 @@ export default function CartPage() {
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Debug info */}
-              {process.env.NODE_ENV === "development" && (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Debug:</strong> Cart has {cart?.items?.length || 0} items
-                  </p>
-                  <pre className="text-xs mt-2 text-yellow-700">
-                    {JSON.stringify(cart, null, 2).substring(0, 500)}...
-                  </pre>
-                </div>
-              )}
-
-              {/* All Items Section */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <ShoppingBag className="h-5 w-5 text-gray-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">Cart Items</h2>
-                  <Badge variant="outline">{cart?.items?.length || 0}</Badge>
-                </div>
-                <div className="space-y-4">
-                  {cart?.items?.map((item, index) => {
-                    if (!item) {
-                      console.warn(`Cart item at index ${index} is undefined`)
-                      return null
-                    }
-                    return renderCartItem(item)
-                  })}
-                </div>
-              </div>
-
-              {/* Legacy sections for backward compatibility */}
+              {/* Product Items Section */}
               {cart?.product_items?.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-4">
@@ -341,6 +295,7 @@ export default function CartPage() {
                 </div>
               )}
 
+              {/* Deal Items Section */}
               {cart?.deal_items?.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-4">
@@ -352,6 +307,7 @@ export default function CartPage() {
                 </div>
               )}
 
+              {/* Bundle Items Section */}
               {cart?.bundle_items?.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-4">
@@ -409,13 +365,6 @@ export default function CartPage() {
                   </p>
                 </div>
               )}
-
-              {/* Demo Notice */}
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800 text-center">
-                  🎭 <strong>Demo Mode:</strong> This is a simulated checkout process
-                </p>
-              </div>
             </CardContent>
             <CardFooter className="flex-col gap-3">
               <Button className="w-full" size="lg" disabled={isEmpty} onClick={handleProceedToCheckout}>
