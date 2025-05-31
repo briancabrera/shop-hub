@@ -27,67 +27,46 @@ export function Navbar() {
   }
 
   return (
-    <nav className="border-b bg-white sticky top-0 z-50 shadow-sm" role="navigation" aria-label="Main navigation">
+    <nav className="border-b bg-white sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2" aria-label="Shoppero home">
+          <Link href="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-pink-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg" aria-hidden="true">
-                S
-              </span>
+              <span className="text-white font-bold text-lg">S</span>
             </div>
             <span className="text-xl font-bold text-gray-900">Shoppero</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8" aria-label="Primary navigation">
-            <Link
-              href="/products"
-              className="text-gray-700 hover:text-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-md px-2 py-1"
-            >
+          <nav className="hidden md:flex items-center space-x-8">
+            <Link href="/products" className="text-gray-700 hover:text-orange-600 transition-colors">
               Products
             </Link>
-            <Link
-              href="/deals"
-              className="text-gray-700 hover:text-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-md px-2 py-1 relative"
-            >
+            <Link href="/deals" className="text-gray-700 hover:text-orange-600 transition-colors relative">
               🔥 Deals
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-2 h-2 animate-pulse"></span>
             </Link>
           </nav>
 
-          {/* Search Bar - Desktop */}
           <div className="hidden md:flex flex-1 max-w-lg mx-8">
             <SearchBar className="w-full" />
           </div>
 
-          {/* Right Side Icons */}
           <div className="flex items-center space-x-4">
-            {/* Cart */}
-            <Link href="/cart" aria-label={`Shopping cart with ${itemCount} items`}>
+            <Link href="/cart">
               <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="w-5 h-5" aria-hidden="true" />
+                <ShoppingCart className="w-5 h-5" />
                 {!cartLoading && itemCount > 0 && (
-                  <Badge
-                    className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center p-0 text-xs bg-orange-500"
-                    aria-label={`${itemCount} items in cart`}
-                  >
+                  <Badge className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center p-0 text-xs bg-orange-500">
                     {itemCount}
                   </Badge>
                 )}
               </Button>
             </Link>
 
-            {/* User Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={userData ? `User menu for ${userData.email}` : "User menu"}
-                >
-                  <User className="w-5 h-5" aria-hidden="true" />
+                <Button variant="ghost" size="icon">
+                  <User className="w-5 h-5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -119,43 +98,28 @@ export function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isMenuOpen}
-            >
-              {isMenuOpen ? (
-                <X className="w-5 h-5" aria-hidden="true" />
-              ) : (
-                <Menu className="w-5 h-5" aria-hidden="true" />
-              )}
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
           </div>
         </div>
 
-        {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden border-t py-4" role="navigation" aria-label="Mobile navigation">
+          <div className="md:hidden border-t py-4">
             <div className="flex flex-col space-y-4">
-              {/* Mobile Search */}
               <div className="px-2">
                 <SearchBar className="w-full" onResultClick={closeMobileMenu} />
               </div>
-
               <Link
                 href="/products"
-                className="text-gray-700 hover:text-orange-600 transition-colors px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-md"
+                className="text-gray-700 hover:text-orange-600 transition-colors px-2 py-1"
                 onClick={closeMobileMenu}
               >
                 Products
               </Link>
               <Link
                 href="/deals"
-                className="text-gray-700 hover:text-orange-600 transition-colors px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded-md relative"
+                className="text-gray-700 hover:text-orange-600 transition-colors px-2 py-1 relative"
                 onClick={closeMobileMenu}
               >
                 🔥 Deals

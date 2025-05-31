@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect, useRef } from "react"
 import { Search, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -14,24 +15,17 @@ interface SimpleSearchBarProps {
   onSearchChange?: (query: string) => void
 }
 
-export function SimpleSearchBar({
-  placeholder = "Search products...",
-  className = "",
-  initialQuery = "",
-  onSearchChange,
-}: SimpleSearchBarProps) {
+export function SimpleSearchBar(props: SimpleSearchBarProps) {
+  const { placeholder = "Search products...", className = "", initialQuery = "", onSearchChange } = props
+
   const [query, setQuery] = useState(initialQuery)
-  // Aplicar debounce al valor de búsqueda - aumentamos a 500ms para dar más
-  // tiempo en búsquedas simples que pueden ser costosas en la API
   const debouncedQuery = useDebounce(query, 500)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Update local state when initialQuery changes
   useEffect(() => {
     setQuery(initialQuery)
   }, [initialQuery])
 
-  // Efecto para notificar al componente padre cuando cambia el valor debounced
   useEffect(() => {
     if (onSearchChange) {
       onSearchChange(debouncedQuery)
@@ -41,21 +35,18 @@ export function SimpleSearchBar({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setQuery(value)
-    // Ya no notificamos aquí, sino en el efecto con el valor debounced
   }
 
   const handleClear = () => {
     setQuery("")
-    // Aquí sí notificamos inmediatamente para limpiar los resultados
     if (onSearchChange) {
       onSearchChange("")
     }
-    inputRef.current?.focus()
+    if (inputRef.current) inputRef.current.focus()
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Para búsqueda simple, notificar inmediatamente al enviar el formulario
     if (onSearchChange) {
       onSearchChange(query)
     }
