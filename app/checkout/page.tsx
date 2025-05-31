@@ -43,11 +43,32 @@ export default function CheckoutPage() {
       return
     }
 
+    // Map cart items to checkout format with safe property access
+    const checkoutItems = cartData.items
+      .map((item) => {
+        // Handle different possible data structures
+        const productId = item.product?.id || item.product_id || item.id
+        const quantity = item.quantity || 1
+
+        if (!productId) {
+          console.warn("Item missing product ID:", item)
+          return null
+        }
+
+        return {
+          product_id: productId,
+          quantity: quantity,
+        }
+      })
+      .filter(Boolean) // Remove null items
+
+    if (!checkoutItems.length) {
+      alert("No valid items found in cart")
+      return
+    }
+
     const checkoutData = {
-      items: cartData.items.map((item) => ({
-        product_id: item.product.id,
-        quantity: item.quantity,
-      })),
+      items: checkoutItems,
       shipping_address: {
         full_name: `${firstName} ${lastName}`,
         address_line1: address,
@@ -60,6 +81,25 @@ export default function CheckoutPage() {
 
     console.log("Submitting checkout data:", checkoutData)
     checkoutMutation.mutate(checkoutData)
+  }
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(price || 0)
+  }
+
+  const getItemName = (item: any) => {
+    return item.product?.name || item.name || item.display_name || "Unknown Item"
+  }
+
+  const getItemPrice = (item: any) => {
+    return item.product?.price || item.price || item.discounted_price || item.original_price || 0
+  }
+
+  const getItemQuantity = (item: any) => {
+    return item.quantity || 1
   }
 
   if (cartLoading) {
@@ -101,6 +141,18 @@ export default function CheckoutPage() {
         </Button>
         <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
       </div>
+
+      {/* Debug info in development */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <strong>Debug:</strong> Cart has {cartData?.items?.length || 0} items
+          </p>
+          <pre className="text-xs mt-2 text-yellow-700 max-h-32 overflow-y-auto">
+            {JSON.stringify(cartData, null, 2)}
+          </pre>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -245,15 +297,26 @@ export default function CheckoutPage() {
               <CardContent className="space-y-4">
                 {/* Order Items */}
                 <div className="space-y-3">
-                  {cartData?.items?.map((item) => (
-                    <div key={item.product.id} className="flex justify-between">
-                      <div>
-                        <p className="font-medium">{item.product.name}</p>
-                        <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                  {cartData?.items?.map((item, index) => {
+                    if (!item) {
+                      console.warn(`Cart item at index ${index} is undefined`)
+                      return null
+                    }
+
+                    const itemName = getItemName(item)
+                    const itemPrice = getItemPrice(item)
+                    const itemQuantity = getItemQuantity(item)
+
+                    return (
+                      <div key={item.id || index} className="flex justify-between">
+                        <div>
+                          <p className="font-medium">{itemName}</p>
+                          <p className="text-sm text-gray-600">Qty: {itemQuantity}</p>
+                        </div>
+                        <p className="font-medium">{formatPrice(itemPrice * itemQuantity)}</p>
                       </div>
-                      <p className="font-medium">${(item.product.price * item.quantity).toFixed(2)}</p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <Separator />
@@ -261,7 +324,7 @@ export default function CheckoutPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>${cartData?.total?.toFixed(2)}</span>
+                    <span>{formatPrice(cartData?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Shipping</span>
@@ -269,7 +332,7 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Tax</span>
-                    <span>${(cartData?.total * 0.08).toFixed(2)}</span>
+                    <span>{formatPrice((cartData?.total || 0) * 0.08)}</span>
                   </div>
                 </div>
 
@@ -277,7 +340,7 @@ export default function CheckoutPage() {
 
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
-                  <span>${(cartData?.total * 1.08).toFixed(2)}</span>
+                  <span>{formatPrice((cartData?.total || 0) * 1.08)}</span>
                 </div>
 
                 <div className="bg-blue-50 p-3 rounded-lg">
