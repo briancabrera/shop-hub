@@ -47,6 +47,7 @@ export function DealCard({ deal, onAddToCart }: DealCardProps) {
       )}
 
       <CardContent className="p-0 flex-1 flex flex-col">
+        {/* Image - Fixed height */}
         <div className="relative h-40 overflow-hidden">
           <Image
             src={deal.product.image_url || "/placeholder.svg?height=300&width=300&query=product"}
@@ -63,15 +64,17 @@ export function DealCard({ deal, onAddToCart }: DealCardProps) {
           )}
         </div>
 
-        <div className="p-4 flex-1 flex flex-col justify-between">
-          <h3 className="font-semibold text-lg mb-1 line-clamp-2 min-h-[3rem]">{deal.title}</h3>
+        <div className="p-4 flex-1 flex flex-col">
+          {/* Title - Fixed height with ellipsis */}
+          <h3 className="font-semibold text-lg h-14 line-clamp-2 mb-2">{deal.title}</h3>
 
+          {/* Description - Fixed height with ellipsis */}
           {deal.description && (
-            <p className="text-sm text-muted-foreground mb-2 line-clamp-2 min-h-[2rem]">{deal.description}</p>
+            <p className="text-sm text-muted-foreground h-10 line-clamp-2 mb-2">{deal.description}</p>
           )}
 
-          {/* Price Section */}
-          <div className="space-y-1 mb-2">
+          {/* Price Section - Fixed height */}
+          <div className="h-16 mb-2">
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-primary">${discountedPrice.toFixed(2)}</span>
               <span className="text-lg text-muted-foreground line-through">${originalPrice.toFixed(2)}</span>
@@ -79,33 +82,33 @@ export function DealCard({ deal, onAddToCart }: DealCardProps) {
             <div className="text-sm text-green-600 font-medium">You save ${savings.toFixed(2)}</div>
           </div>
 
-          {/* Time Remaining */}
+          {/* Time Remaining - Fixed height */}
           {isValid && (
-            <div className="flex items-center gap-1 text-sm text-orange-600 mb-2">
-              <Clock className="w-4 h-4" />
-              <span className="font-medium">{timeRemaining} left</span>
+            <div className="flex items-center gap-1 text-sm text-orange-600 h-6 mb-2">
+              <Clock className="w-4 h-4 flex-shrink-0" />
+              <span className="font-medium truncate">{timeRemaining} left</span>
             </div>
           )}
 
-          {/* Usage Limit */}
+          {/* Usage Limit - Fixed height */}
           {deal.max_uses && (
-            <div className="text-xs text-muted-foreground mb-3">
+            <div className="text-xs text-muted-foreground h-5 mb-2">
               {deal.max_uses - deal.current_uses} of {deal.max_uses} remaining
             </div>
           )}
         </div>
       </CardContent>
 
-      <CardFooter className="p-4 pt-0 space-y-1.5 mt-auto">
+      <CardFooter className="p-4 pt-0 mt-auto">
         <div className="flex gap-2 w-full">
-          <Button asChild variant="outline" className="flex-1" disabled={!isValid}>
+          <Button asChild variant="outline" className="flex-1 h-10" disabled={!isValid}>
             <Link href={`/products/${deal.product.id}`}>View Details</Link>
           </Button>
 
           {onAddToCart && (
             <Button
               onClick={() => onAddToCart(deal.id)}
-              className="flex-1"
+              className="flex-1 h-10"
               disabled={!isValid || deal.product.stock === 0}
             >
               {deal.product.stock === 0 ? "Out of Stock" : "Add Deal to Cart"}

@@ -155,10 +155,10 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       )}
 
-      <Link href={`/products/${product.id}`} className="block">
+      <Link href={`/products/${product.id}`} className="block flex-1 flex flex-col">
         <CardContent className="p-4 flex-1 flex flex-col">
-          {/* Product Image */}
-          <div className="relative h-40 mb-4 overflow-hidden rounded-lg bg-gray-100">
+          {/* Product Image - Fixed height */}
+          <div className="relative h-40 mb-3 overflow-hidden rounded-lg bg-gray-100">
             {isImageLoading && <div className="absolute inset-0 bg-gray-200 animate-pulse" />}
             <Image
               src={product.image_url || "/placeholder.svg?height=300&width=300"}
@@ -199,26 +199,28 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-2 flex-1 flex flex-col justify-between">
-            <h3 className="font-semibold text-lg line-clamp-2 min-h-[3rem] group-hover:text-blue-600 transition-colors">
+          <div className="flex-1 flex flex-col">
+            {/* Title - Fixed height with ellipsis */}
+            <h3 className="font-semibold text-lg h-14 line-clamp-2 group-hover:text-blue-600 transition-colors mb-1">
               {product.name}
             </h3>
 
+            {/* Description - Fixed height with ellipsis */}
             {product.description && (
-              <p className="text-sm text-gray-600 line-clamp-2 min-h-[2rem]">{product.description}</p>
+              <p className="text-sm text-gray-600 h-10 line-clamp-2 mb-1">{product.description}</p>
             )}
 
-            {/* Deal Title */}
+            {/* Deal Title - Fixed height with ellipsis */}
             {hasActiveDeal && bestDeal && (
-              <div className="flex items-center gap-1">
-                <Tag className="w-3 h-3 text-red-500" />
-                <p className="text-sm font-medium text-red-600">{bestDeal.title}</p>
+              <div className="flex items-center gap-1 h-6 mb-1 overflow-hidden">
+                <Tag className="w-3 h-3 text-red-500 flex-shrink-0" />
+                <p className="text-sm font-medium text-red-600 truncate">{bestDeal.title}</p>
               </div>
             )}
 
-            {/* Rating */}
+            {/* Rating - Fixed height */}
             {product.rating && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 h-5 mb-1">
                 <div className="flex" role="img" aria-label={`${product.rating} out of 5 stars`}>
                   {renderStars(product.rating)}
                 </div>
@@ -226,13 +228,15 @@ export function ProductCard({ product }: ProductCardProps) {
               </div>
             )}
 
-            {/* Category */}
-            <Badge variant="outline" className="text-xs">
-              {product.category}
-            </Badge>
+            {/* Category - Fixed height */}
+            <div className="h-6 mb-2">
+              <Badge variant="outline" className="text-xs">
+                {product.category}
+              </Badge>
+            </div>
 
-            {/* Price Section */}
-            <div className="flex items-center justify-between my-1">
+            {/* Price Section - Fixed height */}
+            <div className="h-16 mb-2">
               <div className="flex flex-col">
                 {hasActiveDeal && discountedPrice ? (
                   <>
@@ -250,16 +254,16 @@ export function ProductCard({ product }: ProductCardProps) {
               </div>
             </div>
 
-            {/* Deal Progress */}
+            {/* Deal Progress - Fixed height */}
             {hasActiveDeal && bestDeal?.max_uses && (
-              <div className="space-y-0.5 mt-1">
+              <div className="h-10">
                 <div className="flex justify-between text-xs text-gray-600">
                   <span>Deal Progress</span>
                   <span>
                     {bestDeal.current_uses}/{bestDeal.max_uses} used
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                   <div
                     className="bg-gradient-to-r from-orange-400 to-red-500 h-2 rounded-full transition-all duration-300"
                     style={{
@@ -273,13 +277,13 @@ export function ProductCard({ product }: ProductCardProps) {
         </CardContent>
       </Link>
 
-      <CardFooter className="p-4 pt-0 flex flex-col gap-1.5 mt-auto">
+      <CardFooter className="p-4 pt-0 flex flex-col gap-1.5">
         {/* Deal Button */}
         {hasActiveDeal && (
           <Button
             onClick={handleAddDeal}
             disabled={product.stock === 0 || addToCartMutation.isPending}
-            className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+            className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 h-10"
             aria-label={`Add ${product.name} deal to cart`}
           >
             <Tag className="w-4 h-4 mr-2" aria-hidden="true" />
@@ -296,7 +300,7 @@ export function ProductCard({ product }: ProductCardProps) {
           onClick={handleAddProduct}
           disabled={product.stock === 0 || addToCartMutation.isPending}
           variant={hasActiveDeal ? "outline" : "default"}
-          className="w-full"
+          className="w-full h-10"
           aria-label={`Add ${product.name} to cart`}
         >
           <ShoppingCart className="w-4 h-4 mr-2" aria-hidden="true" />

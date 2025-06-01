@@ -42,7 +42,8 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
       </div>
 
       <CardHeader className="p-0">
-        <div className="relative h-48 overflow-hidden">
+        {/* Image - Fixed height */}
+        <div className="relative h-40 overflow-hidden">
           <Image
             src={bundle.image_url || "/placeholder.svg?height=240&width=320&query=bundle"}
             alt={bundle.title}
@@ -59,16 +60,18 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="p-4 flex-1 flex flex-col justify-between">
-        <h3 className="font-bold text-xl mb-2 line-clamp-2 min-h-[3.5rem]">{bundle.title}</h3>
+      <CardContent className="p-4 flex-1 flex flex-col">
+        {/* Title - Fixed height with ellipsis */}
+        <h3 className="font-bold text-xl h-14 line-clamp-2 mb-2">{bundle.title}</h3>
 
+        {/* Description - Fixed height with ellipsis */}
         {bundle.description && (
-          <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">{bundle.description}</p>
+          <p className="text-sm text-muted-foreground h-10 line-clamp-2 mb-3">{bundle.description}</p>
         )}
 
-        {/* Bundle Items Preview */}
+        {/* Bundle Items Preview - Fixed height */}
         {bundle.items && bundle.items.length > 0 && (
-          <div className="mb-4">
+          <div className="h-16 mb-3">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm font-medium">{bundle.items.length} items included</span>
@@ -89,8 +92,8 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
           </div>
         )}
 
-        {/* Price Section */}
-        <div className="space-y-2 mb-3">
+        {/* Price Section - Fixed height */}
+        <div className="h-16 mb-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl font-bold text-primary">${(bundle.discounted_price || 0).toFixed(2)}</span>
             <span className="text-lg text-muted-foreground line-through">
@@ -100,30 +103,30 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
           <div className="text-sm text-green-600 font-medium">Bundle saves ${savings.toFixed(2)}</div>
         </div>
 
-        {/* Time Remaining */}
+        {/* Time Remaining - Fixed height */}
         {isValid && (
-          <div className="flex items-center gap-1 text-sm text-orange-600 mb-3">
-            <Clock className="w-4 h-4" />
-            <span className="font-medium">{timeRemaining} left</span>
+          <div className="flex items-center gap-1 text-sm text-orange-600 h-6 mb-2">
+            <Clock className="w-4 h-4 flex-shrink-0" />
+            <span className="font-medium truncate">{timeRemaining} left</span>
           </div>
         )}
 
-        {/* Usage Limit */}
+        {/* Usage Limit - Fixed height */}
         {bundle.max_uses && (
-          <div className="text-xs text-muted-foreground mb-3">
+          <div className="text-xs text-muted-foreground h-5 mb-2">
             {bundle.max_uses - bundle.current_uses} of {bundle.max_uses} remaining
           </div>
         )}
       </CardContent>
 
-      <CardFooter className="p-4 pt-0 space-y-2 mt-auto">
+      <CardFooter className="p-4 pt-0 mt-auto">
         <div className="flex gap-2 w-full">
-          <Button asChild variant="outline" className="flex-1" disabled={!isValid}>
+          <Button asChild variant="outline" className="flex-1 h-10" disabled={!isValid}>
             <Link href={`/bundles/${bundle.id}`}>View Bundle</Link>
           </Button>
 
           {onAddToCart && (
-            <Button onClick={() => onAddToCart(bundle.id)} className="flex-1" disabled={!isValid}>
+            <Button onClick={() => onAddToCart(bundle.id)} className="flex-1 h-10" disabled={!isValid}>
               Add Bundle to Cart
             </Button>
           )}
