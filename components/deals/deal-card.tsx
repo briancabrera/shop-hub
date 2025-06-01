@@ -26,7 +26,7 @@ export function DealCard({ deal, onAddToCart }: DealCardProps) {
 
   return (
     <Card
-      className={`group relative overflow-hidden transition-all duration-300 hover:shadow-lg ${!isValid ? "opacity-60" : ""}`}
+      className={`group relative overflow-hidden transition-all duration-300 hover:shadow-lg h-[520px] flex flex-col ${!isValid ? "opacity-60" : ""}`}
     >
       {/* Discount Badge */}
       <div className="absolute top-3 left-3 z-10">
@@ -46,8 +46,8 @@ export function DealCard({ deal, onAddToCart }: DealCardProps) {
         </div>
       )}
 
-      <CardContent className="p-0">
-        <div className="relative aspect-square overflow-hidden">
+      <CardContent className="p-0 flex-1 flex flex-col">
+        <div className="relative h-48 overflow-hidden">
           <Image
             src={deal.product.image_url || "/placeholder.svg?height=300&width=300&query=product"}
             alt={deal.product.name}
@@ -63,10 +63,12 @@ export function DealCard({ deal, onAddToCart }: DealCardProps) {
           )}
         </div>
 
-        <div className="p-4">
-          <h3 className="font-semibold text-lg mb-2 line-clamp-2">{deal.title}</h3>
+        <div className="p-4 flex-1 flex flex-col justify-between">
+          <h3 className="font-semibold text-lg mb-2 line-clamp-2 min-h-[3.5rem]">{deal.title}</h3>
 
-          {deal.description && <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{deal.description}</p>}
+          {deal.description && (
+            <p className="text-sm text-muted-foreground mb-3 line-clamp-2 min-h-[2.5rem]">{deal.description}</p>
+          )}
 
           {/* Price Section */}
           <div className="space-y-2 mb-3">
@@ -94,7 +96,7 @@ export function DealCard({ deal, onAddToCart }: DealCardProps) {
         </div>
       </CardContent>
 
-      <CardFooter className="p-4 pt-0 space-y-2">
+      <CardFooter className="p-4 pt-0 space-y-2 mt-auto">
         <div className="flex gap-2 w-full">
           <Button asChild variant="outline" className="flex-1" disabled={!isValid}>
             <Link href={`/products/${deal.product.id}`}>View Details</Link>

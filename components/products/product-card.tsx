@@ -142,7 +142,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const originalPrice = product.price
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-200 relative overflow-hidden">
+    <Card className="group hover:shadow-lg transition-all duration-200 relative overflow-hidden h-[520px] flex flex-col">
       {/* Deal Flash Badge */}
       {hasActiveDeal && (
         <div className="absolute top-2 left-2 z-10">
@@ -156,9 +156,9 @@ export function ProductCard({ product }: ProductCardProps) {
       )}
 
       <Link href={`/products/${product.id}`} className="block">
-        <CardContent className="p-4">
+        <CardContent className="p-4 flex-1 flex flex-col">
           {/* Product Image */}
-          <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100">
+          <div className="relative h-48 mb-4 overflow-hidden rounded-lg bg-gray-100">
             {isImageLoading && <div className="absolute inset-0 bg-gray-200 animate-pulse" />}
             <Image
               src={product.image_url || "/placeholder.svg?height=300&width=300"}
@@ -199,12 +199,14 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-2">
-            <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-blue-600 transition-colors">
+          <div className="space-y-2 flex-1 flex flex-col justify-between">
+            <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem] group-hover:text-blue-600 transition-colors">
               {product.name}
             </h3>
 
-            {product.description && <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>}
+            {product.description && (
+              <p className="text-sm text-gray-600 line-clamp-2 min-h-[2.5rem]">{product.description}</p>
+            )}
 
             {/* Deal Title */}
             {hasActiveDeal && bestDeal && (
@@ -271,7 +273,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </CardContent>
       </Link>
 
-      <CardFooter className="p-4 pt-0 flex flex-col gap-2">
+      <CardFooter className="p-4 pt-0 flex flex-col gap-2 mt-auto">
         {/* Deal Button */}
         {hasActiveDeal && (
           <Button

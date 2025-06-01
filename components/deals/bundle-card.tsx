@@ -23,7 +23,7 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
 
   return (
     <Card
-      className={`group relative overflow-hidden transition-all duration-300 hover:shadow-lg ${!isValid ? "opacity-60" : ""}`}
+      className={`group relative overflow-hidden transition-all duration-300 hover:shadow-lg h-[580px] flex flex-col ${!isValid ? "opacity-60" : ""}`}
     >
       {/* Discount Badge */}
       <div className="absolute top-3 left-3 z-10">
@@ -42,7 +42,7 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
       </div>
 
       <CardHeader className="p-0">
-        <div className="relative aspect-[4/3] overflow-hidden">
+        <div className="relative h-48 overflow-hidden">
           <Image
             src={bundle.image_url || "/placeholder.svg?height=240&width=320&query=bundle"}
             alt={bundle.title}
@@ -59,10 +59,12 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="p-4">
-        <h3 className="font-bold text-xl mb-2 line-clamp-2">{bundle.title}</h3>
+      <CardContent className="p-4 flex-1 flex flex-col justify-between">
+        <h3 className="font-bold text-xl mb-2 line-clamp-2 min-h-[3.5rem]">{bundle.title}</h3>
 
-        {bundle.description && <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{bundle.description}</p>}
+        {bundle.description && (
+          <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">{bundle.description}</p>
+        )}
 
         {/* Bundle Items Preview */}
         {bundle.items && bundle.items.length > 0 && (
@@ -114,7 +116,7 @@ export function BundleCard({ bundle, onAddToCart }: BundleCardProps) {
         )}
       </CardContent>
 
-      <CardFooter className="p-4 pt-0 space-y-2">
+      <CardFooter className="p-4 pt-0 space-y-2 mt-auto">
         <div className="flex gap-2 w-full">
           <Button asChild variant="outline" className="flex-1" disabled={!isValid}>
             <Link href={`/bundles/${bundle.id}`}>View Bundle</Link>
