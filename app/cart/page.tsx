@@ -9,7 +9,6 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { useCart, useRemoveFromCart } from "@/hooks/use-cart"
 import { useUser } from "@/hooks/use-auth"
-import { useCheckout } from "@/hooks/use-checkout"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import Image from "next/image"
@@ -19,7 +18,6 @@ export default function CartPage() {
   const router = useRouter()
   const { data: user, isLoading: isUserLoading } = useUser()
   const { data: cart, isLoading: isCartLoading, error: cartError } = useCart()
-  const checkoutMutation = useCheckout()
   const removeFromCartMutation = useRemoveFromCart()
 
   useEffect(() => {
@@ -28,15 +26,12 @@ export default function CartPage() {
     }
   }, [user, isUserLoading, router])
 
-  const handleCheckout = async () => {
-    try {
-      const result = await checkoutMutation.mutateAsync()
-      if (result?.url) {
-        window.location.href = result.url
-      }
-    } catch (error) {
-      console.error("Checkout error:", error)
+  const handleProceedToCheckout = () => {
+    if (!cart?.items?.length) {
+      console.error("No items in cart")
+      return
     }
+    router.push("/checkout")
   }
 
   const handleRemoveItem = (itemId: string) => {
@@ -372,21 +367,8 @@ export default function CartPage() {
               )}
             </CardContent>
             <CardFooter className="flex-col gap-3">
-              <Button
-                className="w-full"
-                size="lg"
-                disabled={isEmpty || checkoutMutation.isPending}
-                onClick={handleCheckout}
-              >
-                {checkoutMutation.isPending ? (
-                  <>
-                    <LoadingSpinner size="sm" className="mr-2" /> Processing...
-                  </>
-                ) : (
-                  <>
-                    Proceed to Checkout <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
+              <Button className="w-full" size="lg" disabled={isEmpty} onClick={handleProceedToCheckout}>
+                Proceed to Checkout <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button variant="outline" className="w-full" onClick={() => router.push("/products")}>
                 Continue Shopping
