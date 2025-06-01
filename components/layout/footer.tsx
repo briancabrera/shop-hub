@@ -12,7 +12,7 @@ export function Footer() {
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-lg">S</span>
               </div>
-              <span className="text-xl font-bold">ShopHub</span>
+              <span className="text-xl font-bold">Shoppero</span>
             </div>
             <p className="text-gray-400">Your one-stop destination for amazing products at great prices.</p>
             <div className="flex space-x-4">
@@ -95,7 +95,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-          <p>&copy; 2024 ShopHub. All rights reserved.</p>
+          <p>&copy; 2024 Shoppero. All rights reserved.</p>
         </div>
       </div>
     </footer>

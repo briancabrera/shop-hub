@@ -11,7 +11,7 @@ import { QueryProvider } from "@/components/providers/query-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "ShopHub - Modern E-commerce Platform",
+  title: "Shoppero - Modern E-commerce Platform",
   description: "Discover amazing products at great prices",
     generator: 'v0.dev'
 }
